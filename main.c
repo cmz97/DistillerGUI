@@ -166,6 +166,10 @@ void handle_tts_button(void) {
     // Check if we're busy with other operations
     if (is_recording || ai_is_processing || tts_in_progress) {
         UI_DEBUG_PRINT("Cannot start TTS: system busy");
+        //print which one is busy
+        if (is_recording) UI_DEBUG_PRINT("----> is_recording");
+        if (ai_is_processing) UI_DEBUG_PRINT("----> ai_is_processing");
+        if (tts_in_progress) UI_DEBUG_PRINT("----> tts_in_progress");
         return;
     }
     
@@ -226,6 +230,61 @@ void handle_tts_end(void) {
     schedule_status_update("PRESS LEFT BUTTON TO RECORD",
                           lv_color_hex(0xDDDDDD),
                           lv_color_hex(0x000000));
+}
+
+// Add this near the top with other static variables
+#define MAX_STATUS_UPDATES 16
+
+typedef struct {
+    char text[64];
+    lv_color_t bg_color;
+    lv_color_t text_color;
+} status_update_info_t;
+
+typedef struct {
+    status_update_info_t updates[MAX_STATUS_UPDATES];
+    int head;
+    int tail;
+    lv_timer_t *process_timer;
+} status_update_queue_t;
+
+static status_update_queue_t status_queue = {0};
+
+static void process_status_updates(lv_timer_t *timer) {
+    if (status_queue.head == status_queue.tail) {
+        return;  // Queue is empty
+    }
+    
+    // Process one update
+    status_update_info_t *update = &status_queue.updates[status_queue.tail];
+    lv_obj_set_style_bg_color(status_bar, update->bg_color, 0);
+    lv_obj_set_style_text_color(status_label, update->text_color, 0);
+    lv_label_set_text(status_label, update->text);
+    
+    // Move tail forward
+    status_queue.tail = (status_queue.tail + 1) % MAX_STATUS_UPDATES;
+}
+
+static void queue_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color) {
+    int next_head = (status_queue.head + 1) % MAX_STATUS_UPDATES;
+    if (next_head == status_queue.tail) {
+        return;  // Queue is full
+    }
+    
+    // Add update to queue
+    status_update_info_t *update = &status_queue.updates[status_queue.head];
+    strncpy(update->text, text, sizeof(update->text) - 1);
+    update->bg_color = bg_color;
+    update->text_color = text_color;
+    
+    // Move head forward
+    status_queue.head = next_head;
+    
+    // Ensure timer is running
+    if (!status_queue.process_timer) {
+        status_queue.process_timer = lv_timer_create(process_status_updates, 50, NULL);
+        lv_timer_set_repeat_count(status_queue.process_timer, -1);  // Run indefinitely
+    }
 }
 
 int main(void)
@@ -360,7 +419,7 @@ int main(void)
     
 
     // Test audio
-    audio_speak_text("Hello TSVC, how can I help you today?");
+    // audio_speak_text("Hello TSVC, how can I help you today?");
     
     // Main loop
     // int counter = 0;
@@ -456,6 +515,10 @@ static void hal_init(void)
     }
     printf("Debug: Audio initialized\n");
     
+    // Start the status update processor
+    status_queue.process_timer = lv_timer_create(process_status_updates, 50, NULL);
+    lv_timer_set_repeat_count(status_queue.process_timer, -1);  // Run indefinitely
+    
     printf("Debug: hal_init complete\n");
 }
 
@@ -494,6 +557,7 @@ void handle_enter_key(void) {
     } else {
         // Stop recording and indicate AI is thinking
         audio_stop_recording();
+        is_recording = false;
         ai_is_processing = true;
         got_question = false;
         lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
@@ -630,7 +694,7 @@ void set_ui_font(bool use_custom_font) {
 void handle_stream_end(void) {
     UI_DEBUG_PRINT("Stream ended, resetting UI state");
     ai_is_processing = false;
-    lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
-    lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
-    lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
+    queue_status_update("PRESS LEFT BUTTON TO RECORD",
+                        lv_color_hex(0xDDDDDD),
+                        lv_color_hex(0x000000));
 } 
