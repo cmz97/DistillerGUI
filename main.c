@@ -8,6 +8,7 @@
 #include "eink_driver.h"
 #include "monorama_14.h"
 #include "background.h"
+#include "uart_input.h"
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -15,6 +16,11 @@ extern const lv_image_dsc_t background;  // Declare the external image descripto
 static void hal_init(void);
 static void *tick_thread(void *data);
 static lv_obj_t *chat_content;  // Add this line
+
+// Add this near the top with other static variables
+static bool is_recording = false;
+static lv_obj_t *status_bar;
+static lv_obj_t *status_label;
 
 // Debug callback for LVGL - only for errors
 static void my_log_cb(lv_log_level_t level, const char * buf)
@@ -47,10 +53,11 @@ LV_FONT_DECLARE(monorama_14);  // Declare the font
 
 int main(void)
 {
+    printf("Debug: Starting main()\n");
+    
     // Initialize LVGL
     lv_init();
     lv_log_register_print_cb(my_log_cb);
-
     printf("Debug: LVGL initialized\n");
 
     // Initialize e-ink hardware first
@@ -90,9 +97,9 @@ int main(void)
     lv_obj_align(ip_label, LV_ALIGN_CENTER, 0, 4);
     lv_obj_set_style_text_color(ip_label, lv_color_hex(0xFFFFFF), 0);
 
-    // Chain of Thoughts panel
+    // Chain of Thoughts panel - adjust height to be slightly smaller
     lv_obj_t * cot_panel = lv_obj_create(bg);
-    lv_obj_set_size(cot_panel, LV_PCT(94), LV_PCT(33));
+    lv_obj_set_size(cot_panel, LV_PCT(94), LV_PCT(28));  // Reduced from 33% to 28%
     lv_obj_align_to(cot_panel, top_status_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
     lv_obj_set_style_bg_color(cot_panel, lv_color_hex(0xEEEEEE), 0);
     lv_obj_set_style_bg_opa(cot_panel, LV_OPA_COVER, 0);
@@ -113,11 +120,11 @@ int main(void)
     lv_obj_align(cot_content, LV_ALIGN_TOP_LEFT, 0, 25);
     lv_obj_set_style_text_color(cot_content, lv_color_hex(0x666666), 0);
 
-    // Chat panel
+    // Chat panel - reduce gap and adjust height
     lv_obj_t * chat_panel = lv_obj_create(bg);
     lv_obj_remove_style_all(chat_panel);
-    lv_obj_set_size(chat_panel, LV_PCT(94), LV_PCT(53));
-    lv_obj_align_to(chat_panel, cot_panel, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+    lv_obj_set_size(chat_panel, LV_PCT(94), LV_PCT(50));  // Reduced from 55% to 50%
+    lv_obj_align_to(chat_panel, cot_panel, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);  // Keep the 10px gap
     
     // Add styling to chat panel
     lv_obj_set_style_bg_color(chat_panel, lv_color_hex(0xFFFFFF), 0);
@@ -131,16 +138,21 @@ int main(void)
     lv_obj_set_style_pad_right(chat_panel, 5, 0);  // Add padding for scrollbar
     lv_obj_set_scrollbar_mode(chat_panel, LV_SCROLLBAR_MODE_AUTO);  // Show scrollbar when needed
     lv_obj_set_scroll_dir(chat_panel, LV_DIR_VER);  // Only allow vertical scrolling
+    lv_obj_clear_flag(chat_panel, LV_OBJ_FLAG_SCROLL_CHAIN);  // Prevent scroll bubbling
+    lv_obj_add_flag(chat_panel, LV_OBJ_FLAG_SCROLLABLE);      // Make sure scrolling is enabled
 
     // Create a label for chat content - declare as global/static at top of file
     chat_content = lv_label_create(chat_panel);  // Initialize here
     lv_obj_set_width(chat_content, LV_PCT(100));
     lv_label_set_long_mode(chat_content, LV_LABEL_LONG_WRAP);  // Enable text wrapping
     lv_obj_set_style_text_color(chat_content, lv_color_hex(0x000000), 0);
-    lv_label_set_text(chat_content, "AI RESPONSE WILL APPEAR HERE...");
+    lv_label_set_text(chat_content, "AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...");
 
-    // Bottom status bar
-    lv_obj_t * status_bar = lv_obj_create(bg);
+    // Add chat panel to input group here
+    lv_group_add_obj(uart_input_get_group(), chat_panel);
+
+    // Bottom status bar - keep at the very bottom
+    status_bar = lv_obj_create(bg);  // Make it use our static variable
     lv_obj_set_size(status_bar, LV_PCT(100), 30);
     lv_obj_align(status_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
@@ -150,34 +162,27 @@ int main(void)
     lv_obj_clear_flag(status_bar, LV_OBJ_FLAG_SCROLLABLE);
 
     // Status indicator
-    lv_obj_t * status_label = lv_label_create(status_bar);
-    lv_label_set_text(status_label, "READY FOR INPUT");
+    status_label = lv_label_create(status_bar);  // Make it use our static variable
+    lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
     lv_obj_center(status_label);
     lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
 
-    // Force immediate rendering
+    printf("Debug: UI creation complete\n");
     printf("Debug: Forcing initial render\n");
     lv_obj_invalidate(bg);
     lv_refr_now(NULL);
     lv_timer_handler();
     
     printf("Debug: Initial render complete\n");
-    printf("Starting main loop\n");
+    printf("Debug: Starting main loop\n");
     
     // Main loop
-    int counter = 0;
-    char chat_buffer[256];
+    // int counter = 0;
+    // char chat_buffer[256];
+    
+    printf("Debug: Entering while(1) loop\n");
     while(1) {
-        // Update chat content every few seconds as an example
-        counter++;
-        if (counter % 200 == 0) {  // Update every ~1 second (200 * 5ms)
-            snprintf(chat_buffer, sizeof(chat_buffer), 
-                    "CHAT MESSAGE %d\nTHIS IS A LONG MESSAGE THAT WILL WRAP "
-                    "TO THE NEXT LINE AUTOMATICALLY WHEN IT REACHES THE EDGE SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
-                    "OF THE PANEL.", counter/200);
-            lv_label_set_text(chat_content, chat_buffer);
-        }
-        
+        // Process LVGL tasks - this is essential for input handling!
         lv_timer_handler();
         usleep(5000);
     }
@@ -187,6 +192,8 @@ int main(void)
 
 static void hal_init(void)
 {
+    printf("Debug: Starting hal_init()\n");
+    
     // Create a display
     lv_display_t * disp = lv_display_create(EPD_WIDTH, EPD_HEIGHT);
     if (!disp) {
@@ -240,12 +247,21 @@ static void hal_init(void)
     
     printf("Debug: Display initialization complete\n");
 
+    printf("Debug: Creating tick thread\n");
     // Create and start the tick thread
     pthread_t tick_thread_id;
     if (pthread_create(&tick_thread_id, NULL, tick_thread, NULL) != 0) {
         printf("Failed to create tick thread!\n");
         return;
     }
+    printf("Debug: Tick thread created\n");
+
+    printf("Debug: Initializing UART input\n");
+    // Replace the input device initialization with:
+    uart_input_init();
+    printf("Debug: UART input initialized\n");
+    
+    printf("Debug: hal_init complete\n");
 }
 
 static void *tick_thread(void *data)
@@ -258,4 +274,21 @@ static void *tick_thread(void *data)
     }
 
     return NULL;
+}
+
+// Add this function to handle the enter key press
+void handle_enter_key(void) {
+    is_recording = !is_recording;  // Toggle recording state
+    
+    if (is_recording) {
+        // Recording mode
+        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(status_label, "RECORDING NOW");
+    } else {
+        // Normal mode
+        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
+        lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
+        lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
+    }
 } 

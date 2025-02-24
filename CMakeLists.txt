@@ -34,6 +34,7 @@ add_executable(DistillerGUI
     eink_driver.c
     lodepng.c
     background.c
+    uart_input.c
 )
 
 # Include directories for the main executable

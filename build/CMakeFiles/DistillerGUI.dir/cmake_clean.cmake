@@ -9,6 +9,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/DistillerGUI.dir/main.c.o.d"
   "CMakeFiles/DistillerGUI.dir/monorama_14.c.o"
   "CMakeFiles/DistillerGUI.dir/monorama_14.c.o.d"
+  "CMakeFiles/DistillerGUI.dir/uart_input.c.o"
+  "CMakeFiles/DistillerGUI.dir/uart_input.c.o.d"
   "DistillerGUI"
   "DistillerGUI.pdb"
 )

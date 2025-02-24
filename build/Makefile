@@ -9406,6 +9406,30 @@ monorama_14.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/monorama_14.c.s
 .PHONY : monorama_14.c.s
 
+uart_input.o: uart_input.c.o
+.PHONY : uart_input.o
+
+# target to build an object file
+uart_input.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.o
+.PHONY : uart_input.c.o
+
+uart_input.i: uart_input.c.i
+.PHONY : uart_input.i
+
+# target to preprocess a source file
+uart_input.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.i
+.PHONY : uart_input.c.i
+
+uart_input.s: uart_input.c.s
+.PHONY : uart_input.s
+
+# target to generate assembly for a file
+uart_input.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.s
+.PHONY : uart_input.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -10574,6 +10598,9 @@ help:
 	@echo "... monorama_14.o"
 	@echo "... monorama_14.i"
 	@echo "... monorama_14.s"
+	@echo "... uart_input.o"
+	@echo "... uart_input.i"
+	@echo "... uart_input.s"
 .PHONY : help
 
 
