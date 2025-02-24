@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "eink_driver.h"
-#include "monorama_14.h"
 #include "background.h"
 #include "uart_input.h"
 #include "audio.h"
@@ -45,6 +44,10 @@ static label_update_data_t answer_data = {0};
 static lv_timer_t *thinking_timer = NULL;
 static lv_timer_t *answer_timer = NULL;
 
+// Move these variable definitions to the top of the file, after the includes
+bool ai_is_processing = false;  // Define the variable here
+bool got_question = false;      // Define the variable here
+
 // Add these debug macros at the top
 #define UI_DEBUG_PRINT(fmt, ...) printf("UI Debug: " fmt "\n", ##__VA_ARGS__)
 
@@ -74,12 +77,15 @@ static void my_rounder_cb(lv_event_t *e)
     area->y2 = (area->y2 | 0x7);   // Round up to multiple of 8
 }
 
-// Add at the top with other includes
-LV_FONT_DECLARE(monorama_14);  // Declare the font
-
 // Add these function declarations
 void ui_update_thinking_text(const char *text);
 void ui_update_answer_text(const char *text);
+
+// Add this with other static variables
+static const lv_font_t *current_font;  // Store the current font
+
+// Add this function declaration at the top with other declarations
+void handle_stream_end(void);
 
 int main(void)
 {
@@ -126,6 +132,8 @@ int main(void)
     lv_label_set_text(ip_label, "OFFLINE QA AGENT DEMO");
     lv_obj_align(ip_label, LV_ALIGN_CENTER, 0, 4);
     lv_obj_set_style_text_color(ip_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_opa(ip_label, LV_OPA_COVER, 0);  // Full opacity
+    lv_obj_set_style_bg_opa(top_status_bar, LV_OPA_COVER, 0);  // Full background opacity
 
     // Chain of Thoughts panel - adjust height to be slightly smaller
     lv_obj_t * cot_panel = lv_obj_create(bg);
@@ -151,7 +159,7 @@ int main(void)
     lv_label_set_long_mode(cot_content, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(cot_content, lv_color_hex(0x666666), 0);
     lv_obj_align_to(cot_content, cot_header, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);  // Position below header
-    lv_label_set_text(cot_content, "CHAIN OF THOUGHT WILL APPEAR HERE...");
+    lv_label_set_text(cot_content, "Chain of thoughts will appear here...");
 
     // Chat panel - reduce gap and adjust height
     lv_obj_t * chat_panel = lv_obj_create(bg);
@@ -179,7 +187,7 @@ int main(void)
     lv_obj_set_width(chat_content, LV_PCT(100));
     lv_label_set_long_mode(chat_content, LV_LABEL_LONG_WRAP);  // Enable text wrapping
     lv_obj_set_style_text_color(chat_content, lv_color_hex(0x000000), 0);
-    lv_label_set_text(chat_content, "AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...AI RESPONSE WILL APPEAR HERE...");
+    lv_label_set_text(chat_content, "AI Response will appear here...");
 
     // Add chat panel to input group here
     lv_group_add_obj(uart_input_get_group(), chat_panel);
@@ -211,7 +219,7 @@ int main(void)
     
 
     // Test audio
-    audio_speak_text("This is a test of the audio system.");
+    audio_speak_text("Hello TSVC, how can I help you today?");
     
     // Main loop
     // int counter = 0;
@@ -262,12 +270,16 @@ static void hal_init(void)
     
     printf("Debug: Display setup complete\n");
     
-    // Set up the theme with inverted colors (since e-ink is naturally white)
+    // Set the font (using smaller Montserrat)
+    current_font = &lv_font_montserrat_12;
+    printf("Debug: Using Montserrat 12pt font\n");
+    
+    // Set up the theme with the font
     lv_theme_t * theme = lv_theme_default_init(disp,
         lv_color_black(),     // Primary color
         lv_color_white(),     // Secondary color
         false,                // Dark mode = false
-        &monorama_14);       // Use Monorama font instead of Montserrat
+        current_font);        // Use Montserrat font
     
     lv_disp_set_theme(disp, theme);
     
@@ -320,9 +332,14 @@ static void *tick_thread(void *data)
     return NULL;
 }
 
-// Modify the handle_enter_key function
+// Update the handle_enter_key function
 void handle_enter_key(void) {
-    is_recording = !is_recording;  // Toggle recording state
+    if (ai_is_processing) {
+        UI_DEBUG_PRINT("AI is still processing, ignoring record button");
+        return;
+    }
+
+    is_recording = !is_recording;  
     
     if (is_recording) {
         // Start recording
@@ -336,11 +353,13 @@ void handle_enter_key(void) {
             lv_label_set_text(status_label, "RECORDING FAILED!");
         }
     } else {
-        // Stop recording
+        // Stop recording and indicate AI is thinking
         audio_stop_recording();
+        ai_is_processing = true;
+        got_question = false;
         lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
         lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
-        lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
+        lv_label_set_text(status_label, "AI IS THINKING");
     }
 }
 
@@ -451,4 +470,29 @@ void ui_update_answer_text(const char *text) {
     }
     lv_timer_set_repeat_count(answer_timer, 1);
     UI_DEBUG_PRINT("Answer timer created successfully");
+}
+
+// Update or remove the font switching function
+void set_ui_font(bool use_custom_font) {
+    lv_display_t *disp = lv_display_get_default();
+    if (!disp) return;
+
+    // Always use Montserrat 12
+    current_font = &lv_font_montserrat_12;
+    
+    lv_theme_t *theme = lv_theme_default_init(disp,
+        lv_color_black(),
+        lv_color_white(),
+        false,
+        current_font);
+    
+    lv_disp_set_theme(disp, theme);
+    lv_obj_invalidate(lv_scr_act());
+}
+
+// Add this function implementation
+void handle_stream_end(void) {
+    UI_DEBUG_PRINT("Stream ended, resetting UI state");
+    ai_is_processing = false;
+    lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
 } 

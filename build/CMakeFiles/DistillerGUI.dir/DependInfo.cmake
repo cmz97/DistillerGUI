@@ -14,7 +14,6 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/distiller/DistillerGUI/eink_driver.c" "CMakeFiles/DistillerGUI.dir/eink_driver.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/eink_driver.c.o.d"
   "/home/distiller/DistillerGUI/lodepng.c" "CMakeFiles/DistillerGUI.dir/lodepng.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/lodepng.c.o.d"
   "/home/distiller/DistillerGUI/main.c" "CMakeFiles/DistillerGUI.dir/main.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/main.c.o.d"
-  "/home/distiller/DistillerGUI/monorama_14.c" "CMakeFiles/DistillerGUI.dir/monorama_14.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/monorama_14.c.o.d"
   "/home/distiller/DistillerGUI/uart_input.c" "CMakeFiles/DistillerGUI.dir/uart_input.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/uart_input.c.o.d"
   )
 

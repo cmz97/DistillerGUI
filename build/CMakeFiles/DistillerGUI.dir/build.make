@@ -83,24 +83,10 @@ CMakeFiles/DistillerGUI.dir/main.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/DistillerGUI.dir/main.c.s"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/distiller/DistillerGUI/main.c -o CMakeFiles/DistillerGUI.dir/main.c.s
 
-CMakeFiles/DistillerGUI.dir/monorama_14.c.o: CMakeFiles/DistillerGUI.dir/flags.make
-CMakeFiles/DistillerGUI.dir/monorama_14.c.o: /home/distiller/DistillerGUI/monorama_14.c
-CMakeFiles/DistillerGUI.dir/monorama_14.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/DistillerGUI.dir/monorama_14.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/monorama_14.c.o -MF CMakeFiles/DistillerGUI.dir/monorama_14.c.o.d -o CMakeFiles/DistillerGUI.dir/monorama_14.c.o -c /home/distiller/DistillerGUI/monorama_14.c
-
-CMakeFiles/DistillerGUI.dir/monorama_14.c.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/DistillerGUI.dir/monorama_14.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/distiller/DistillerGUI/monorama_14.c > CMakeFiles/DistillerGUI.dir/monorama_14.c.i
-
-CMakeFiles/DistillerGUI.dir/monorama_14.c.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/DistillerGUI.dir/monorama_14.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/distiller/DistillerGUI/monorama_14.c -o CMakeFiles/DistillerGUI.dir/monorama_14.c.s
-
 CMakeFiles/DistillerGUI.dir/eink_driver.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/eink_driver.c.o: /home/distiller/DistillerGUI/eink_driver.c
 CMakeFiles/DistillerGUI.dir/eink_driver.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object CMakeFiles/DistillerGUI.dir/eink_driver.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/DistillerGUI.dir/eink_driver.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/eink_driver.c.o -MF CMakeFiles/DistillerGUI.dir/eink_driver.c.o.d -o CMakeFiles/DistillerGUI.dir/eink_driver.c.o -c /home/distiller/DistillerGUI/eink_driver.c
 
 CMakeFiles/DistillerGUI.dir/eink_driver.c.i: cmake_force
@@ -114,7 +100,7 @@ CMakeFiles/DistillerGUI.dir/eink_driver.c.s: cmake_force
 CMakeFiles/DistillerGUI.dir/lodepng.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/lodepng.c.o: /home/distiller/DistillerGUI/lodepng.c
 CMakeFiles/DistillerGUI.dir/lodepng.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object CMakeFiles/DistillerGUI.dir/lodepng.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object CMakeFiles/DistillerGUI.dir/lodepng.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/lodepng.c.o -MF CMakeFiles/DistillerGUI.dir/lodepng.c.o.d -o CMakeFiles/DistillerGUI.dir/lodepng.c.o -c /home/distiller/DistillerGUI/lodepng.c
 
 CMakeFiles/DistillerGUI.dir/lodepng.c.i: cmake_force
@@ -128,7 +114,7 @@ CMakeFiles/DistillerGUI.dir/lodepng.c.s: cmake_force
 CMakeFiles/DistillerGUI.dir/background.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/background.c.o: /home/distiller/DistillerGUI/background.c
 CMakeFiles/DistillerGUI.dir/background.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object CMakeFiles/DistillerGUI.dir/background.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object CMakeFiles/DistillerGUI.dir/background.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/background.c.o -MF CMakeFiles/DistillerGUI.dir/background.c.o.d -o CMakeFiles/DistillerGUI.dir/background.c.o -c /home/distiller/DistillerGUI/background.c
 
 CMakeFiles/DistillerGUI.dir/background.c.i: cmake_force
@@ -142,7 +128,7 @@ CMakeFiles/DistillerGUI.dir/background.c.s: cmake_force
 CMakeFiles/DistillerGUI.dir/uart_input.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/uart_input.c.o: /home/distiller/DistillerGUI/uart_input.c
 CMakeFiles/DistillerGUI.dir/uart_input.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/DistillerGUI.dir/uart_input.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object CMakeFiles/DistillerGUI.dir/uart_input.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/uart_input.c.o -MF CMakeFiles/DistillerGUI.dir/uart_input.c.o.d -o CMakeFiles/DistillerGUI.dir/uart_input.c.o -c /home/distiller/DistillerGUI/uart_input.c
 
 CMakeFiles/DistillerGUI.dir/uart_input.c.i: cmake_force
@@ -156,7 +142,7 @@ CMakeFiles/DistillerGUI.dir/uart_input.c.s: cmake_force
 CMakeFiles/DistillerGUI.dir/audio.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/audio.c.o: /home/distiller/DistillerGUI/audio.c
 CMakeFiles/DistillerGUI.dir/audio.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/DistillerGUI.dir/audio.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/DistillerGUI.dir/audio.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/audio.c.o -MF CMakeFiles/DistillerGUI.dir/audio.c.o.d -o CMakeFiles/DistillerGUI.dir/audio.c.o -c /home/distiller/DistillerGUI/audio.c
 
 CMakeFiles/DistillerGUI.dir/audio.c.i: cmake_force
@@ -170,7 +156,7 @@ CMakeFiles/DistillerGUI.dir/audio.c.s: cmake_force
 CMakeFiles/DistillerGUI.dir/api_client.c.o: CMakeFiles/DistillerGUI.dir/flags.make
 CMakeFiles/DistillerGUI.dir/api_client.c.o: /home/distiller/DistillerGUI/api_client.c
 CMakeFiles/DistillerGUI.dir/api_client.c.o: CMakeFiles/DistillerGUI.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/DistillerGUI.dir/api_client.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/DistillerGUI.dir/api_client.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/DistillerGUI.dir/api_client.c.o -MF CMakeFiles/DistillerGUI.dir/api_client.c.o.d -o CMakeFiles/DistillerGUI.dir/api_client.c.o -c /home/distiller/DistillerGUI/api_client.c
 
 CMakeFiles/DistillerGUI.dir/api_client.c.i: cmake_force
@@ -184,7 +170,6 @@ CMakeFiles/DistillerGUI.dir/api_client.c.s: cmake_force
 # Object files for target DistillerGUI
 DistillerGUI_OBJECTS = \
 "CMakeFiles/DistillerGUI.dir/main.c.o" \
-"CMakeFiles/DistillerGUI.dir/monorama_14.c.o" \
 "CMakeFiles/DistillerGUI.dir/eink_driver.c.o" \
 "CMakeFiles/DistillerGUI.dir/lodepng.c.o" \
 "CMakeFiles/DistillerGUI.dir/background.c.o" \
@@ -196,7 +181,6 @@ DistillerGUI_OBJECTS = \
 DistillerGUI_EXTERNAL_OBJECTS =
 
 DistillerGUI: CMakeFiles/DistillerGUI.dir/main.c.o
-DistillerGUI: CMakeFiles/DistillerGUI.dir/monorama_14.c.o
 DistillerGUI: CMakeFiles/DistillerGUI.dir/eink_driver.c.o
 DistillerGUI: CMakeFiles/DistillerGUI.dir/lodepng.c.o
 DistillerGUI: CMakeFiles/DistillerGUI.dir/background.c.o
@@ -207,7 +191,7 @@ DistillerGUI: CMakeFiles/DistillerGUI.dir/build.make
 DistillerGUI: liblvgl.a
 DistillerGUI: /usr/lib/aarch64-linux-gnu/libcurl.so
 DistillerGUI: CMakeFiles/DistillerGUI.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking C executable DistillerGUI"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/distiller/DistillerGUI/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking C executable DistillerGUI"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/DistillerGUI.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

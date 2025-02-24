@@ -9430,30 +9430,6 @@ main.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/main.c.s
 .PHONY : main.c.s
 
-monorama_14.o: monorama_14.c.o
-.PHONY : monorama_14.o
-
-# target to build an object file
-monorama_14.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/monorama_14.c.o
-.PHONY : monorama_14.c.o
-
-monorama_14.i: monorama_14.c.i
-.PHONY : monorama_14.i
-
-# target to preprocess a source file
-monorama_14.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/monorama_14.c.i
-.PHONY : monorama_14.c.i
-
-monorama_14.s: monorama_14.c.s
-.PHONY : monorama_14.s
-
-# target to generate assembly for a file
-monorama_14.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/monorama_14.c.s
-.PHONY : monorama_14.c.s
-
 uart_input.o: uart_input.c.o
 .PHONY : uart_input.o
 
@@ -10649,9 +10625,6 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
-	@echo "... monorama_14.o"
-	@echo "... monorama_14.i"
-	@echo "... monorama_14.s"
 	@echo "... uart_input.o"
 	@echo "... uart_input.i"
 	@echo "... uart_input.s"

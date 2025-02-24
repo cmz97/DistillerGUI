@@ -33,7 +33,7 @@
 #define LV_MEM_CUSTOM_FREE    free
 
 /* Color settings */
-#define LV_COLOR_DEPTH     32
+#define LV_COLOR_DEPTH     1
 #define LV_COLOR_16_SWAP   0
 #define LV_COLOR_SCREEN_TRANSP    0
 
@@ -44,9 +44,19 @@
 
 /* Enable features */
 #define LV_USE_THEME_DEFAULT 1
-#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_12 1
 #define LV_USE_LABEL 1
-#define LV_FONT_DEFAULT &lv_font_montserrat_14
+#define LV_FONT_ANTIALIAS 0  // Disable anti-aliasing for sharp edges
+#define LV_FONT_SUBPX 0      // Disable subpixel rendering
+#define LV_FONT_SUBPX_BGR 0  // RGB/BGR order
+
+/* Font default settings */
+#define LV_FONT_DEFAULT &lv_font_montserrat_12
+#define LV_FONT_FMT_TXT_LARGE 0
+
+/* Font rendering quality */
+#define LV_FONT_QUALITY_BETTER 0  // Disable better quality
+#define LV_FONT_QUALITY_BEST 0    // Disable best quality
 
 /* Display buffer size */
 #define LV_DISP_DEF_REFR_PERIOD    30

@@ -1,5 +1,6 @@
 #define _GNU_SOURCE  // Add this at the very top of the file
 #include "api_client.h"
+#include "ui_callbacks.h"  // Add this include
 #include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -444,26 +445,27 @@ bool api_send_audio_file_streaming(const char *filename, stream_callback cb, voi
 static void update_thinking_text(const char *text);
 static void update_answer_text(const char *text);
 
+// Add this declaration at the top
+extern bool ai_is_processing;
+extern bool got_question;
+
+// Add this declaration
+extern void handle_stream_end(void);
+
 void handle_stream_message(const char *message, void *user_data) {
     DEBUG_PRINT("Stream message: %s", message);
     static struct StreamContext ctx = {0};
     
-    // Allocate space for uppercase version
-    char *upper_text = strdup(message);
-    if (!upper_text) {
-        DEBUG_PRINT("Failed to allocate memory for uppercase conversion");
-        return;
-    }
-    
-    // Convert to uppercase
-    for (char *p = upper_text; *p; p++) {
-        *p = toupper((unsigned char)*p);
-    }
-    
     // Check for question prefix
-    if (strncmp(upper_text, "QUESTION: --->", 13) == 0) {
-        const char *question = upper_text + 13;  // Skip prefix
+    if (strncmp(message, "question: --->", 13) == 0) {
+        const char *question = message + 13;  // Skip prefix
         DEBUG_PRINT("Question: %s", question);
+        
+        // Format and display the question in chat panel
+        char formatted_question[4096];
+        snprintf(formatted_question, sizeof(formatted_question), "Question: %s", question);
+        update_answer_text(formatted_question);
+        got_question = true;
         
         // Reset accumulated answer when new question starts
         if (ctx.accumulated_answer) {
@@ -472,23 +474,20 @@ void handle_stream_message(const char *message, void *user_data) {
             ctx.answer_size = 0;
             ctx.answer_capacity = 0;
         }
-        
-        free(upper_text);
         return;
     }
     
     // Check for thinking prefix
-    if (strncmp(upper_text, "THINKING: --->", 13) == 0) {
-        const char *thinking = upper_text + 13;  // Skip prefix
+    if (strncmp(message, "thinking: --->", 13) == 0) {
+        const char *thinking = message + 13;  // Skip prefix
         DEBUG_PRINT("Thinking: %s", thinking);
         update_thinking_text(thinking);
-        free(upper_text);
         return;
     }
     
     // Check for answer prefix
-    if (strncmp(upper_text, "ANSWER: --->", 11) == 0) {
-        const char *answer = upper_text + 11;  // Skip prefix
+    if (strncmp(message, "answer: --->", 11) == 0) {
+        const char *answer = message + 11;  // Skip prefix
         DEBUG_PRINT("Answer: %s", answer);
         
         // Allocate or reallocate buffer if needed
@@ -500,7 +499,6 @@ void handle_stream_message(const char *message, void *user_data) {
             char *new_buffer = realloc(ctx.accumulated_answer, new_capacity);
             if (!new_buffer) {
                 DEBUG_PRINT("Failed to allocate memory for accumulated answer");
-                free(upper_text);
                 return;
             }
             ctx.accumulated_answer = new_buffer;
@@ -520,12 +518,16 @@ void handle_stream_message(const char *message, void *user_data) {
         strcat(ctx.accumulated_answer + ctx.answer_size, answer);
         ctx.answer_size += answer_len;
         update_answer_text(ctx.accumulated_answer);
-        
-        free(upper_text);
         return;
     }
-    
-    free(upper_text);
+
+    // Check for end of stream (empty message or special token)
+    if (strlen(message) == 0 || strcmp(message, "[DONE]") == 0) {
+        DEBUG_PRINT("Stream ended");
+        // Call the UI handler function instead of directly updating UI
+        handle_stream_end();
+        return;
+    }
 }
 
 // Add these functions to update the UI
@@ -559,9 +561,8 @@ void *api_send_thread_func(void *arg) {
     return NULL;
 }
 
-// Add cleanup function
+// Update the cleanup function
 void api_stream_cleanup(void) {
-    // This should be called when streaming is done or when cleaning up the application
     struct StreamContext *ctx = &(struct StreamContext){0};
     if (ctx->accumulated_answer) {
         free(ctx->accumulated_answer);
@@ -569,4 +570,6 @@ void api_stream_cleanup(void) {
         ctx->answer_size = 0;
         ctx->answer_capacity = 0;
     }
+    // Call the UI handler function instead of directly updating UI
+    handle_stream_end();
 } 

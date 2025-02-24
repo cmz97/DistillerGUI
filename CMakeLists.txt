@@ -32,16 +32,20 @@ target_include_directories(lvgl PUBLIC
     ${LVGL_DIR}/src/display
 )
 
-# Create executable
+# Create executable first
 add_executable(DistillerGUI 
     main.c
-    monorama_14.c
     eink_driver.c
     lodepng.c
     background.c
     uart_input.c
     audio.c
     api_client.c
+)
+
+# Then add Montserrat font configuration
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    # Remove the font definitions since they're in lv_conf.h
 )
 
 # Include directories for the main executable

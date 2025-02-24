@@ -484,7 +484,6 @@ CMakeFiles/DistillerGUI.dir/main.c.o: /home/distiller/DistillerGUI/main.c \
  /usr/include/aarch64-linux-gnu/bits/floatn-common.h \
  /usr/include/string.h /usr/include/strings.h \
  /home/distiller/DistillerGUI/eink_driver.h \
- /home/distiller/DistillerGUI/monorama_14.h \
  /home/distiller/DistillerGUI/background.h \
  /home/distiller/DistillerGUI/uart_input.h \
  /home/distiller/DistillerGUI/audio.h \

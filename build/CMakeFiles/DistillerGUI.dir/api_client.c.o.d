@@ -3,6 +3,7 @@ CMakeFiles/DistillerGUI.dir/api_client.c.o: \
  /home/distiller/DistillerGUI/api_client.h \
  /usr/lib/gcc/aarch64-linux-gnu/12/include/stdbool.h \
  /usr/lib/gcc/aarch64-linux-gnu/12/include/stddef.h \
+ /home/distiller/DistillerGUI/ui_callbacks.h \
  /usr/include/aarch64-linux-gnu/curl/curl.h \
  /usr/include/aarch64-linux-gnu/curl/curlver.h \
  /usr/include/aarch64-linux-gnu/curl/system.h \
