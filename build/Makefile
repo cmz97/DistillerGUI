@@ -142,6 +142,30 @@ DistillerGUI/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/build
 .PHONY : DistillerGUI/fast
 
+audio.o: audio.c.o
+.PHONY : audio.o
+
+# target to build an object file
+audio.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.o
+.PHONY : audio.c.o
+
+audio.i: audio.c.i
+.PHONY : audio.i
+
+# target to preprocess a source file
+audio.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.i
+.PHONY : audio.c.i
+
+audio.s: audio.c.s
+.PHONY : audio.s
+
+# target to generate assembly for a file
+audio.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.s
+.PHONY : audio.c.s
+
 background.o: background.c.o
 .PHONY : background.o
 
@@ -9440,6 +9464,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... DistillerGUI"
 	@echo "... lvgl"
+	@echo "... audio.o"
+	@echo "... audio.i"
+	@echo "... audio.s"
 	@echo "... background.o"
 	@echo "... background.i"
 	@echo "... background.s"

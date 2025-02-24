@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(DistillerGUI)
 
+# Add ALSA package requirement
+find_package(ALSA REQUIRED)
+
 # Add configuration paths
 add_definitions(-DLV_CONF_PATH="${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h")
 
@@ -35,6 +38,7 @@ add_executable(DistillerGUI
     lodepng.c
     background.c
     uart_input.c
+    audio.c
 )
 
 # Include directories for the main executable
@@ -49,10 +53,16 @@ target_include_directories(DistillerGUI PUBLIC
     ${LVGL_DIR}/src/font
     ${LVGL_DIR}/src/widgets
     ${LVGL_DIR}/src/display
+    ${ALSA_INCLUDE_DIRS}
 )
 
 # Link libraries
-target_link_libraries(DistillerGUI PRIVATE lvgl pthread gpiod)
+target_link_libraries(DistillerGUI PRIVATE 
+    lvgl 
+    pthread 
+    gpiod 
+    asound  # Explicitly link against ALSA
+)
 
 # Add debug flags
 set(CMAKE_BUILD_TYPE Debug)

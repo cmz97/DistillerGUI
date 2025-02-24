@@ -9,6 +9,7 @@
 #include "monorama_14.h"
 #include "background.h"
 #include "uart_input.h"
+#include "audio.h"
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -187,6 +188,7 @@ int main(void)
         usleep(5000);
     }
 
+    audio_cleanup();  // Add this before return
     return 0;
 }
 
@@ -261,6 +263,12 @@ static void hal_init(void)
     uart_input_init();
     printf("Debug: UART input initialized\n");
     
+    printf("Debug: Initializing audio\n");
+    if (!audio_init()) {
+        printf("Failed to initialize audio!\n");
+    }
+    printf("Debug: Audio initialized\n");
+    
     printf("Debug: hal_init complete\n");
 }
 
@@ -276,17 +284,24 @@ static void *tick_thread(void *data)
     return NULL;
 }
 
-// Add this function to handle the enter key press
+// Modify the handle_enter_key function
 void handle_enter_key(void) {
     is_recording = !is_recording;  // Toggle recording state
     
     if (is_recording) {
-        // Recording mode
-        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_text(status_label, "RECORDING NOW");
+        // Start recording
+        if (audio_start_recording()) {
+            lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
+            lv_label_set_text(status_label, "RECORDING NOW");
+        } else {
+            // If recording failed to start
+            is_recording = false;
+            lv_label_set_text(status_label, "RECORDING FAILED!");
+        }
     } else {
-        // Normal mode
+        // Stop recording
+        audio_stop_recording();
         lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
         lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
         lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");

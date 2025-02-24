@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/DistillerGUI.dir/audio.c.o"
+  "CMakeFiles/DistillerGUI.dir/audio.c.o.d"
   "CMakeFiles/DistillerGUI.dir/background.c.o"
   "CMakeFiles/DistillerGUI.dir/background.c.o.d"
   "CMakeFiles/DistillerGUI.dir/eink_driver.c.o"
