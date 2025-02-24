@@ -10,6 +10,7 @@
 #include "background.h"
 #include "uart_input.h"
 #include "audio.h"
+#include "ui_callbacks.h"
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -22,6 +23,30 @@ static lv_obj_t *chat_content;  // Add this line
 static bool is_recording = false;
 static lv_obj_t *status_bar;
 static lv_obj_t *status_label;
+
+// Add this with other static variables at the top
+static lv_obj_t *cot_content;   // For chain of thought
+
+// Add this at the top with other static variables
+static char thinking_buffer[1024] = {0};  // Buffer for thinking text
+static char answer_buffer[4096] = {0};    // Buffer for answer text
+
+// Add these structures to store update data
+typedef struct {
+    lv_obj_t *label;
+    char text[4096];
+} label_update_data_t;
+
+// Add these as static variables
+static label_update_data_t thinking_data = {0};
+static label_update_data_t answer_data = {0};
+
+// Add these as static variables at the top
+static lv_timer_t *thinking_timer = NULL;
+static lv_timer_t *answer_timer = NULL;
+
+// Add these debug macros at the top
+#define UI_DEBUG_PRINT(fmt, ...) printf("UI Debug: " fmt "\n", ##__VA_ARGS__)
 
 // Debug callback for LVGL - only for errors
 static void my_log_cb(lv_log_level_t level, const char * buf)
@@ -51,6 +76,10 @@ static void my_rounder_cb(lv_event_t *e)
 
 // Add at the top with other includes
 LV_FONT_DECLARE(monorama_14);  // Declare the font
+
+// Add these function declarations
+void ui_update_thinking_text(const char *text);
+void ui_update_answer_text(const char *text);
 
 int main(void)
 {
@@ -112,14 +141,17 @@ int main(void)
     lv_obj_t * cot_header = lv_label_create(cot_panel);
     lv_label_set_text(cot_header, "CHAIN OF THOUGHTS");
     lv_obj_align(cot_header, LV_ALIGN_TOP_MID, 0, 0);
+    
+    // Add padding below header
+    lv_obj_set_style_pad_bottom(cot_header, 10, 0);
 
-    // CoT Content
-    lv_obj_t * cot_content = lv_label_create(cot_panel);
+    // CoT Content - position it below the header
+    cot_content = lv_label_create(cot_panel);
     lv_obj_set_width(cot_content, LV_PCT(100));
     lv_label_set_long_mode(cot_content, LV_LABEL_LONG_WRAP);
-    lv_label_set_text(cot_content, "THINKING PROCESS WILL APPEAR HERE...");
-    lv_obj_align(cot_content, LV_ALIGN_TOP_LEFT, 0, 25);
     lv_obj_set_style_text_color(cot_content, lv_color_hex(0x666666), 0);
+    lv_obj_align_to(cot_content, cot_header, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);  // Position below header
+    lv_label_set_text(cot_content, "CHAIN OF THOUGHT WILL APPEAR HERE...");
 
     // Chat panel - reduce gap and adjust height
     lv_obj_t * chat_panel = lv_obj_create(bg);
@@ -176,6 +208,10 @@ int main(void)
     
     printf("Debug: Initial render complete\n");
     printf("Debug: Starting main loop\n");
+    
+
+    // Test audio
+    audio_speak_text("This is a test of the audio system.");
     
     // Main loop
     // int counter = 0;
@@ -306,4 +342,113 @@ void handle_enter_key(void) {
         lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
         lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
     }
+}
+
+// Update the timer callbacks
+static void thinking_timer_cb(lv_timer_t *timer) {
+    UI_DEBUG_PRINT("Thinking timer callback started");
+    if (!thinking_data.label) {
+        UI_DEBUG_PRINT("Error: thinking_data.label is NULL");
+        thinking_timer = NULL;  // Clear the reference
+        return;
+    }
+    UI_DEBUG_PRINT("Setting thinking text: %s", thinking_data.text);
+    lv_label_set_text(thinking_data.label, thinking_data.text);
+    lv_refr_now(NULL);  // Force refresh
+    UI_DEBUG_PRINT("Thinking text set successfully");
+    thinking_timer = NULL;  // Clear the reference
+}
+
+static void answer_timer_cb(lv_timer_t *timer) {
+    UI_DEBUG_PRINT("Answer timer callback started");
+    if (!answer_data.label) {
+        UI_DEBUG_PRINT("Error: answer_data.label is NULL");
+        answer_timer = NULL;  // Clear the reference
+        return;
+    }
+    UI_DEBUG_PRINT("Setting answer text: %s", answer_data.text);
+    lv_label_set_text(answer_data.label, answer_data.text);
+    lv_refr_now(NULL);  // Force refresh
+    UI_DEBUG_PRINT("Answer text set successfully");
+    answer_timer = NULL;  // Clear the reference
+}
+
+void ui_update_thinking_text(const char *text) {
+    UI_DEBUG_PRINT("ui_update_thinking_text called with text: %s", text ? text : "NULL");
+    
+    if (!text) {
+        UI_DEBUG_PRINT("Error: text is NULL");
+        return;
+    }
+    
+    // Store label pointer if not already stored
+    if (!thinking_data.label) {
+        UI_DEBUG_PRINT("Initializing thinking_data.label");
+        thinking_data.label = cot_content;
+        if (!thinking_data.label) {
+            UI_DEBUG_PRINT("Error: cot_content is NULL");
+            return;
+        }
+    }
+    
+    // Copy text to our static buffer
+    UI_DEBUG_PRINT("Copying text to buffer");
+    strncpy(thinking_data.text, text, sizeof(thinking_data.text) - 1);
+    thinking_data.text[sizeof(thinking_data.text) - 1] = '\0';
+    
+    // Schedule the UI update for the next timer callback
+    UI_DEBUG_PRINT("Creating thinking timer");
+    if (thinking_timer) {
+        UI_DEBUG_PRINT("Deleting old thinking timer");
+        lv_timer_del(thinking_timer);
+        thinking_timer = NULL;
+    }
+    
+    thinking_timer = lv_timer_create(thinking_timer_cb, 0, NULL);
+    if (!thinking_timer) {
+        UI_DEBUG_PRINT("Error: Failed to create thinking timer");
+        return;
+    }
+    lv_timer_set_repeat_count(thinking_timer, 1);
+    UI_DEBUG_PRINT("Thinking timer created successfully");
+}
+
+void ui_update_answer_text(const char *text) {
+    UI_DEBUG_PRINT("ui_update_answer_text called with text: %s", text ? text : "NULL");
+    
+    if (!text) {
+        UI_DEBUG_PRINT("Error: text is NULL");
+        return;
+    }
+    
+    // Store label pointer if not already stored
+    if (!answer_data.label) {
+        UI_DEBUG_PRINT("Initializing answer_data.label");
+        answer_data.label = chat_content;
+        if (!answer_data.label) {
+            UI_DEBUG_PRINT("Error: chat_content is NULL");
+            return;
+        }
+    }
+    
+    // Copy text to our static buffer
+    UI_DEBUG_PRINT("Copying text to buffer");
+    strncpy(answer_data.text, text, sizeof(answer_data.text) - 1);
+    answer_data.text[sizeof(answer_data.text) - 1] = '\0';
+    
+    // Schedule the UI update for the next timer callback
+    UI_DEBUG_PRINT("Creating answer timer");
+    if (answer_timer) {
+        UI_DEBUG_PRINT("Deleting old answer timer");
+        lv_timer_del(answer_timer);
+        answer_timer = NULL;
+    }
+    
+    answer_timer = lv_timer_create(answer_timer_cb, 0, NULL);
+    if (!answer_timer) {
+        UI_DEBUG_PRINT("Error: Failed to create answer timer");
+        return;
+    }
+    lv_timer_set_repeat_count(answer_timer, 1);
+    UI_DEBUG_PRINT("Answer timer created successfully");
 } 

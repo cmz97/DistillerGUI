@@ -8,17 +8,27 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
+#include "api_client.h"
+#include "ui_callbacks.h"
 
 #define AUDIO_DEVICE "hw:0,0"
-#define SAMPLE_RATE 48000
+#define SAMPLE_RATE 24000
 #define CHANNELS 2
 #define FORMAT SND_PCM_FORMAT_S16_LE
+#define SAVE_WAV 0  // Set to 1 to save WAV files, 0 to send directly to server
 
 // Add debug macro
 #define DEBUG_PRINT(fmt, ...) printf("Audio Debug: " fmt "\n", ##__VA_ARGS__)
 
 // Add function prototypes
 static void print_audio_info(snd_pcm_t *handle, snd_pcm_hw_params_t *params);
+static void *recording_thread_func(void *arg);
+
+// Add these structs
+struct ResponseData {
+    char *data;
+    size_t size;
+};
 
 static snd_pcm_t *capture_handle = NULL;
 static pthread_t recording_thread;
@@ -108,7 +118,6 @@ static void *recording_thread_func(void *arg) {
     DEBUG_PRINT("Starting recording thread");
     pthread_mutex_lock(&audio_mutex);
     
-    // Check if capture handle is valid
     if (!capture_handle) {
         DEBUG_PRINT("Invalid capture handle");
         pthread_mutex_unlock(&audio_mutex);
@@ -119,7 +128,9 @@ static void *recording_thread_func(void *arg) {
     size_t bytes_per_frame = CHANNELS * 2;
     char *buffer = malloc(frames * bytes_per_frame);
     FILE *wav_file = NULL;
-    long total_bytes = 0;
+    char *audio_buffer = NULL;
+    size_t audio_buffer_size = 0;
+    size_t audio_buffer_capacity = 0;
     
     if (!buffer) {
         DEBUG_PRINT("Failed to allocate buffer");
@@ -127,51 +138,64 @@ static void *recording_thread_func(void *arg) {
         return NULL;
     }
     
-    generate_filename();
-    DEBUG_PRINT("Attempting to open file: %s", current_filename);
-    wav_file = fopen(current_filename, "wb");
-    if (!wav_file) {
-        DEBUG_PRINT("Failed to open WAV file: %s", strerror(errno));
-        free(buffer);
-        pthread_mutex_unlock(&audio_mutex);
-        return NULL;
+    if (SAVE_WAV) {
+        generate_filename();
+        DEBUG_PRINT("Opening WAV file: %s", current_filename);
+        wav_file = fopen(current_filename, "wb");
+        if (!wav_file) {
+            DEBUG_PRINT("Failed to open WAV file: %s", strerror(errno));
+            free(buffer);
+            pthread_mutex_unlock(&audio_mutex);
+            return NULL;
+        }
+        
+        // Write placeholder header
+        wav_header placeholder = {0};
+        if (fwrite(&placeholder, sizeof(wav_header), 1, wav_file) != 1) {
+            DEBUG_PRINT("Failed to write placeholder header");
+            fclose(wav_file);
+            free(buffer);
+            pthread_mutex_unlock(&audio_mutex);
+            return NULL;
+        }
+    } else {
+        // Initialize memory buffer for audio data
+        audio_buffer_capacity = 1024 * 1024; // Start with 1MB
+        audio_buffer = malloc(audio_buffer_capacity);
+        if (!audio_buffer) {
+            DEBUG_PRINT("Failed to allocate audio buffer");
+            free(buffer);
+            pthread_mutex_unlock(&audio_mutex);
+            return NULL;
+        }
+        
+        // Write WAV header to memory
+        wav_header header = {0};
+        memcpy(header.riff_header, "RIFF", 4);
+        memcpy(header.wave_header, "WAVE", 4);
+        memcpy(header.fmt_header, "fmt ", 4);
+        header.fmt_chunk_size = 16;
+        header.audio_format = 1;
+        header.num_channels = CHANNELS;
+        header.sample_rate = SAMPLE_RATE;
+        header.bits_per_sample = 16;
+        header.block_align = header.num_channels * header.bits_per_sample / 8;
+        header.byte_rate = header.sample_rate * header.block_align;
+        memcpy(header.data_header, "data", 4);
+        
+        memcpy(audio_buffer, &header, sizeof(wav_header));
+        audio_buffer_size = sizeof(wav_header);
     }
-    DEBUG_PRINT("Successfully opened WAV file");
     
-    // Write a placeholder header
-    wav_header placeholder = {0};
-    if (fwrite(&placeholder, sizeof(wav_header), 1, wav_file) != 1) {
-        DEBUG_PRINT("Failed to write placeholder header: %s", strerror(errno));
-        fclose(wav_file);
-        free(buffer);
-        pthread_mutex_unlock(&audio_mutex);
-        return NULL;
-    }
-    
-    // Check PCM state before preparing
-    snd_pcm_state_t state = snd_pcm_state(capture_handle);
-    DEBUG_PRINT("PCM state before prepare: %d", state);
-    
-    // Drop and prepare
+    // Initialize PCM device
     snd_pcm_drop(capture_handle);
-    
-    // Prepare PCM device
-    DEBUG_PRINT("Preparing PCM device");
-    int prepare_rc = snd_pcm_prepare(capture_handle);
-    if (prepare_rc < 0) {
-        DEBUG_PRINT("Failed to prepare PCM device: %s", snd_strerror(prepare_rc));
-        fclose(wav_file);
-        free(buffer);
-        pthread_mutex_unlock(&audio_mutex);
-        return NULL;
-    }
-    
-    // Start the PCM device
-    DEBUG_PRINT("Starting PCM device");
-    int start_rc = snd_pcm_start(capture_handle);
-    if (start_rc < 0) {
-        DEBUG_PRINT("Failed to start PCM device: %s", snd_strerror(start_rc));
-        fclose(wav_file);
+    if (snd_pcm_prepare(capture_handle) < 0 || snd_pcm_start(capture_handle) < 0) {
+        DEBUG_PRINT("Failed to prepare/start PCM device");
+        if (SAVE_WAV) {
+            fclose(wav_file);
+        } else {
+            free(audio_buffer);
+        }
         free(buffer);
         pthread_mutex_unlock(&audio_mutex);
         return NULL;
@@ -180,10 +204,10 @@ static void *recording_thread_func(void *arg) {
     pthread_mutex_unlock(&audio_mutex);
     DEBUG_PRINT("Starting recording loop");
     
+    long total_bytes = 0;
     while (is_recording) {
         pthread_mutex_lock(&audio_mutex);
         if (!capture_handle) {
-            DEBUG_PRINT("Capture handle became invalid");
             pthread_mutex_unlock(&audio_mutex);
             break;
         }
@@ -192,7 +216,6 @@ static void *recording_thread_func(void *arg) {
         pthread_mutex_unlock(&audio_mutex);
         
         if (rc == -EPIPE) {
-            DEBUG_PRINT("Buffer overrun detected");
             pthread_mutex_lock(&audio_mutex);
             if (capture_handle) {
                 snd_pcm_prepare(capture_handle);
@@ -206,44 +229,82 @@ static void *recording_thread_func(void *arg) {
         }
         
         if (rc > 0) {
-            size_t written = fwrite(buffer, bytes_per_frame, rc, wav_file);
-            if (written != (size_t)rc) {
-                DEBUG_PRINT("Short write to WAV file: %zu != %d", written, rc);
+            size_t bytes = rc * bytes_per_frame;
+            if (SAVE_WAV) {
+                size_t written = fwrite(buffer, 1, bytes, wav_file);
+                if (written != bytes) {
+                    DEBUG_PRINT("Short write to WAV file");
+                }
+                total_bytes += written;
+            } else {
+                // Ensure buffer has enough space
+                if (audio_buffer_size + bytes > audio_buffer_capacity) {
+                    audio_buffer_capacity *= 2;
+                    char *new_buffer = realloc(audio_buffer, audio_buffer_capacity);
+                    if (!new_buffer) {
+                        DEBUG_PRINT("Failed to resize audio buffer");
+                        break;
+                    }
+                    audio_buffer = new_buffer;
+                }
+                memcpy(audio_buffer + audio_buffer_size, buffer, bytes);
+                audio_buffer_size += bytes;
             }
-            total_bytes += written * bytes_per_frame;
         }
-        
         usleep(100);
     }
     
-    DEBUG_PRINT("Recording loop ended, finalizing file with %ld bytes", total_bytes);
+    DEBUG_PRINT("Recording ended");
     pthread_mutex_lock(&audio_mutex);
     
-    // Stop the PCM device
-    if (capture_handle) {
-        snd_pcm_drop(capture_handle);
+    if (SAVE_WAV) {
+        // Finalize WAV file
+        if (fseek(wav_file, 0, SEEK_SET) == 0) {
+            write_wav_header(wav_file, total_bytes);
+        }
+        fclose(wav_file);
+        
+        // Create thread data for API sending
+        struct ApiThreadData *thread_data = malloc(sizeof(struct ApiThreadData));
+        thread_data->is_file = true;
+        strncpy(thread_data->filename, current_filename, sizeof(thread_data->filename) - 1);
+        
+        // Create thread for API sending
+        pthread_t api_thread;
+        pthread_create(&api_thread, NULL, api_send_thread_func, thread_data);
+        pthread_detach(api_thread);
+    } else {
+        // Update WAV header with final size
+        wav_header *final_header = (wav_header *)audio_buffer;
+        final_header->data_bytes = audio_buffer_size - sizeof(wav_header);
+        final_header->wav_size = audio_buffer_size - 8;
+        
+        // Create thread data for API sending
+        struct ApiThreadData *thread_data = malloc(sizeof(struct ApiThreadData));
+        thread_data->is_file = false;
+        thread_data->buffer = audio_buffer;
+        thread_data->buffer_size = audio_buffer_size;
+        
+        // Create thread for API sending
+        pthread_t api_thread;
+        pthread_create(&api_thread, NULL, api_send_thread_func, thread_data);
+        pthread_detach(api_thread);
+        
+        // Don't free audio_buffer here, it will be freed by the API thread
     }
     
-    // Write the final header
-    if (fseek(wav_file, 0, SEEK_SET) != 0) {
-        DEBUG_PRINT("Failed to seek to start of file: %s", strerror(errno));
-    }
-    write_wav_header(wav_file, total_bytes);
-    
-    // Verify file size
-    fseek(wav_file, 0, SEEK_END);
-    long file_size = ftell(wav_file);
-    DEBUG_PRINT("Final file size: %ld bytes", file_size);
-    
-    fclose(wav_file);
     free(buffer);
     pthread_mutex_unlock(&audio_mutex);
     
-    DEBUG_PRINT("Recording thread ending, file saved: %s", current_filename);
+    DEBUG_PRINT("Recording thread ending");
     return NULL;
 }
 
 bool audio_init(void) {
+    if (!api_client_init()) {
+        DEBUG_PRINT("Failed to initialize API client");
+        return false;
+    }
     DEBUG_PRINT("Initializing audio");
     pthread_mutex_lock(&audio_mutex);
     
@@ -359,6 +420,9 @@ void audio_stop_recording(void) {
     DEBUG_PRINT("Waiting for recording thread to finish");
     pthread_join(recording_thread, NULL);
     DEBUG_PRINT("Recording stopped");
+    
+    // Signal the UI that recording has stopped
+    handle_enter_key();  // This will update the UI immediately
 }
 
 void audio_cleanup(void) {
@@ -379,6 +443,7 @@ void audio_cleanup(void) {
     }
     pthread_mutex_unlock(&audio_mutex);
     DEBUG_PRINT("Audio cleanup complete");
+    api_client_cleanup();
 }
 
 bool is_audio_recording(void) {
@@ -418,4 +483,145 @@ static void print_audio_info(snd_pcm_t *handle, snd_pcm_hw_params_t *params) {
         }
     }
     DEBUG_PRINT("========================");
+}
+
+static snd_pcm_t *playback_handle = NULL;
+
+static bool init_playback_device(void) {
+    if (playback_handle) {
+        return true;  // Already initialized
+    }
+    
+    DEBUG_PRINT("Opening playback device: %s", AUDIO_DEVICE);
+    int rc = snd_pcm_open(&playback_handle, AUDIO_DEVICE, SND_PCM_STREAM_PLAYBACK, 0);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to open audio device for playback: %s", snd_strerror(rc));
+        return false;
+    }
+    
+    snd_pcm_hw_params_t *params;
+    snd_pcm_hw_params_alloca(&params);
+    
+    DEBUG_PRINT("Getting default parameters for playback");
+    rc = snd_pcm_hw_params_any(playback_handle, params);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to get default params: %s", snd_strerror(rc));
+        goto error;
+    }
+    
+    // Print playback capabilities
+    print_audio_info(playback_handle, params);
+    
+    DEBUG_PRINT("Setting playback access mode to INTERLEAVED");
+    rc = snd_pcm_hw_params_set_access(playback_handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set access mode: %s", snd_strerror(rc));
+        goto error;
+    }
+    
+    DEBUG_PRINT("Setting playback format to S16_LE");
+    rc = snd_pcm_hw_params_set_format(playback_handle, params, FORMAT);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set format: %s", snd_strerror(rc));
+        goto error;
+    }
+    
+    DEBUG_PRINT("Setting playback channels to 2");
+    rc = snd_pcm_hw_params_set_channels(playback_handle, params, CHANNELS);  // Use 2 channels as per hardware
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set channels: %s", snd_strerror(rc));
+        goto error;
+    }
+    
+    DEBUG_PRINT("Setting playback rate to %d", SAMPLE_RATE);
+    unsigned int rate = SAMPLE_RATE;
+    int dir = 0;
+    rc = snd_pcm_hw_params_set_rate_near(playback_handle, params, &rate, &dir);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set rate: %s", snd_strerror(rc));
+        goto error;
+    }
+    DEBUG_PRINT("Actual rate set to %u", rate);
+    
+    // Set buffer size
+    snd_pcm_uframes_t buffer_size = 16384;
+    rc = snd_pcm_hw_params_set_buffer_size_near(playback_handle, params, &buffer_size);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set buffer size: %s", snd_strerror(rc));
+        goto error;
+    }
+    DEBUG_PRINT("Buffer size set to %lu frames", buffer_size);
+    
+    DEBUG_PRINT("Applying hardware parameters");
+    rc = snd_pcm_hw_params(playback_handle, params);
+    if (rc < 0) {
+        DEBUG_PRINT("Failed to set hardware parameters: %s", snd_strerror(rc));
+        goto error;
+    }
+    
+    DEBUG_PRINT("Playback device initialized successfully");
+    return true;
+
+error:
+    DEBUG_PRINT("Error initializing playback device");
+    snd_pcm_close(playback_handle);
+    playback_handle = NULL;
+    return false;
+}
+
+bool audio_play_buffer(const char *buffer, size_t buffer_size) {
+    DEBUG_PRINT("Starting playback of %zu bytes", buffer_size);
+    if (!init_playback_device()) {
+        return false;
+    }
+    
+    // Skip WAV header
+    const char *audio_data = buffer + 44;  // Standard WAV header size
+    size_t audio_size = buffer_size - 44;
+    
+    DEBUG_PRINT("Preparing playback device");
+    snd_pcm_prepare(playback_handle);
+    
+    // Convert mono to stereo if needed
+    size_t frames = audio_size / 2;  // 16-bit mono audio
+    int16_t *stereo_buffer = malloc(frames * 4);  // 2 channels * 2 bytes per sample
+    if (!stereo_buffer) {
+        DEBUG_PRINT("Failed to allocate stereo buffer");
+        return false;
+    }
+    
+    // Copy mono data to both channels
+    const int16_t *mono_data = (const int16_t *)audio_data;
+    for (size_t i = 0; i < frames; i++) {
+        stereo_buffer[i*2] = mono_data[i];     // Left channel
+        stereo_buffer[i*2+1] = mono_data[i];   // Right channel
+    }
+    
+    DEBUG_PRINT("Writing %zu frames to playback device", frames);
+    snd_pcm_sframes_t written = snd_pcm_writei(playback_handle, stereo_buffer, frames);
+    
+    if (written < 0) {
+        DEBUG_PRINT("Failed to write audio data: %s", snd_strerror(written));
+        free(stereo_buffer);
+        return false;
+    }
+    
+    DEBUG_PRINT("Successfully wrote %ld frames", written);
+    snd_pcm_drain(playback_handle);
+    free(stereo_buffer);
+    return true;
+}
+
+bool audio_speak_text(const char *text) {
+    char *audio_data = NULL;
+    size_t audio_size = 0;
+    
+    if (!api_send_tts_request(text, 1.0f, "en-us", &audio_data, &audio_size)) {
+        DEBUG_PRINT("Failed to get TTS audio");
+        return false;
+    }
+    
+    bool success = audio_play_buffer(audio_data, audio_size);
+    free(audio_data);
+    return success;
 } 

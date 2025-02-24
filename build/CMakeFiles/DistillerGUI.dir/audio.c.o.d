@@ -2,6 +2,7 @@ CMakeFiles/DistillerGUI.dir/audio.c.o: \
  /home/distiller/DistillerGUI/audio.c /usr/include/stdc-predef.h \
  /home/distiller/DistillerGUI/audio.h \
  /usr/lib/gcc/aarch64-linux-gnu/12/include/stdbool.h \
+ /usr/lib/gcc/aarch64-linux-gnu/12/include/stddef.h \
  /usr/include/alsa/asoundlib.h /usr/include/unistd.h \
  /usr/include/features.h /usr/include/features-time64.h \
  /usr/include/aarch64-linux-gnu/bits/wordsize.h \
@@ -15,7 +16,6 @@ CMakeFiles/DistillerGUI.dir/audio.c.o: \
  /usr/include/aarch64-linux-gnu/bits/types.h \
  /usr/include/aarch64-linux-gnu/bits/typesizes.h \
  /usr/include/aarch64-linux-gnu/bits/time64.h \
- /usr/lib/gcc/aarch64-linux-gnu/12/include/stddef.h \
  /usr/include/aarch64-linux-gnu/bits/confname.h \
  /usr/include/aarch64-linux-gnu/bits/getopt_posix.h \
  /usr/include/aarch64-linux-gnu/bits/getopt_core.h \
@@ -97,4 +97,6 @@ CMakeFiles/DistillerGUI.dir/audio.c.o: \
  /usr/include/limits.h /usr/include/aarch64-linux-gnu/bits/posix1_lim.h \
  /usr/include/aarch64-linux-gnu/bits/local_lim.h \
  /usr/include/linux/limits.h \
- /usr/include/aarch64-linux-gnu/bits/posix2_lim.h
+ /usr/include/aarch64-linux-gnu/bits/posix2_lim.h \
+ /home/distiller/DistillerGUI/api_client.h \
+ /home/distiller/DistillerGUI/ui_callbacks.h

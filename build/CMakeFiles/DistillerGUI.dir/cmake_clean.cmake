@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/DistillerGUI.dir/api_client.c.o"
+  "CMakeFiles/DistillerGUI.dir/api_client.c.o.d"
   "CMakeFiles/DistillerGUI.dir/audio.c.o"
   "CMakeFiles/DistillerGUI.dir/audio.c.o.d"
   "CMakeFiles/DistillerGUI.dir/background.c.o"

@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/home/distiller/DistillerGUI/api_client.c" "CMakeFiles/DistillerGUI.dir/api_client.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/api_client.c.o.d"
   "/home/distiller/DistillerGUI/audio.c" "CMakeFiles/DistillerGUI.dir/audio.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/audio.c.o.d"
   "/home/distiller/DistillerGUI/background.c" "CMakeFiles/DistillerGUI.dir/background.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/background.c.o.d"
   "/home/distiller/DistillerGUI/eink_driver.c" "CMakeFiles/DistillerGUI.dir/eink_driver.c.o" "gcc" "CMakeFiles/DistillerGUI.dir/eink_driver.c.o.d"
