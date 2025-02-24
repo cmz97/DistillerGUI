@@ -488,4 +488,10 @@ CMakeFiles/DistillerGUI.dir/main.c.o: /home/distiller/DistillerGUI/main.c \
  /home/distiller/DistillerGUI/uart_input.h \
  /home/distiller/DistillerGUI/audio.h \
  /home/distiller/DistillerGUI/ui_callbacks.h \
- /home/distiller/DistillerGUI/font_distiller.h
+ /home/distiller/DistillerGUI/font_distiller.h /usr/include/ctype.h \
+ /usr/include/stdlib.h /usr/include/aarch64-linux-gnu/bits/waitflags.h \
+ /usr/include/aarch64-linux-gnu/bits/waitstatus.h \
+ /usr/include/aarch64-linux-gnu/sys/types.h /usr/include/endian.h \
+ /usr/include/aarch64-linux-gnu/bits/byteswap.h \
+ /usr/include/aarch64-linux-gnu/bits/uintn-identity.h \
+ /usr/include/alloca.h /usr/include/aarch64-linux-gnu/bits/stdlib-float.h

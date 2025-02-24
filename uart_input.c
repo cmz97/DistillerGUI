@@ -28,6 +28,8 @@ static pthread_mutex_t uart_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define BTN_SELECT  4
 #define BTN_SHUTDOWN 8
 
+static int current_button_state = 0;
+
 // Initialize UART
 static bool uart_init(void) {
     uart_fd = open("/dev/ttyAMA2", O_RDWR | O_NOCTTY | O_NONBLOCK);  // Make non-blocking
@@ -79,11 +81,18 @@ static void* uart_read_thread(void* arg) {
         if (n > 0) {
             buffer[n] = '\0';
             int button_state = atoi(buffer);
+            current_button_state = button_state;
             printf("UART thread received button state: %d\n", button_state);
             
             pthread_mutex_lock(&uart_mutex);
             
-            if (button_state & BTN_UP) {
+            // Check for TTS combination (UP + DOWN = 3) first
+            if (button_state == 3) {
+                printf("UART thread: TTS button detected (UP+DOWN)\n");
+                extern void handle_tts_button(void);
+                handle_tts_button();
+            }
+            else if (button_state & BTN_UP) {
                 last_key = LV_KEY_UP;
                 key_pressed = true;
                 printf("UART thread: UP key detected\n");
@@ -168,4 +177,8 @@ lv_indev_t* uart_input_get_indev(void) {
 
 lv_group_t* uart_input_get_group(void) {
     return g;
+}
+
+int uart_input_get_button_state(void) {
+    return current_button_state;
 } 

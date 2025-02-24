@@ -623,5 +623,10 @@ bool audio_speak_text(const char *text) {
     
     bool success = audio_play_buffer(audio_data, audio_size);
     free(audio_data);
+    
+    // Call the TTS end handler
+    extern void handle_tts_end(void);
+    handle_tts_end();
+    
     return success;
 } 

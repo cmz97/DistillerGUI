@@ -11,6 +11,8 @@
 #include "audio.h"
 #include "ui_callbacks.h"
 #include "font_distiller.h"
+#include <ctype.h>
+#include <stdlib.h>
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -49,7 +51,12 @@ static lv_timer_t *answer_timer = NULL;
 bool ai_is_processing = false;  // Define the variable here
 bool got_question = false;      // Define the variable here
 
-// Add these debug macros at the top
+// Add these variables at the top with other static variables
+static char *current_text_for_tts = NULL;  // Store the full text
+static char *next_sentence_ptr = NULL;     // Track next sentence position
+static bool tts_in_progress = false;       // Track TTS state
+
+// Add this debug macros at the top
 #define UI_DEBUG_PRINT(fmt, ...) printf("UI Debug: " fmt "\n", ##__VA_ARGS__)
 
 // Debug callback for LVGL - only for errors
@@ -81,9 +88,145 @@ static void my_rounder_cb(lv_event_t *e)
 // Add these function declarations
 void ui_update_thinking_text(const char *text);
 void ui_update_answer_text(const char *text);
+void handle_tts_end(void);  // Add this declaration
 
 // Add this function declaration at the top with other declarations
 void handle_stream_end(void);
+
+// Add this helper function
+static char* get_next_sentence(const char* text, const char* current_pos) {
+    if (!text || !*text) return NULL;
+    
+    // If current_pos is NULL, start from beginning
+    const char* start = current_pos ? current_pos : text;
+    
+    // Skip any leading whitespace
+    while (*start && isspace(*start)) start++;
+    if (!*start) return NULL;
+    
+    // Find the end of the sentence
+    const char* end = start;
+    while (*end) {
+        if (*end == '.' || *end == '!' || *end == '?') {
+            end++;
+            break;
+        }
+        end++;
+    }
+    
+    // If we found no terminator but have text, use the whole remaining text
+    if (end == start) return NULL;
+    
+    // Allocate and copy the sentence
+    size_t len = end - start;
+    char* sentence = malloc(len + 1);
+    if (!sentence) return NULL;
+    
+    strncpy(sentence, start, len);
+    sentence[len] = '\0';
+    
+    return sentence;
+}
+
+// Add this structure for TTS UI updates
+typedef struct {
+    const char* text;
+    lv_color_t bg_color;
+    lv_color_t text_color;
+} status_update_t;
+
+static void status_update_timer_cb(lv_timer_t *timer) {
+    status_update_t *update = (status_update_t*)lv_timer_get_user_data(timer);
+    if (update) {
+        lv_obj_set_style_bg_color(status_bar, update->bg_color, 0);
+        lv_obj_set_style_text_color(status_label, update->text_color, 0);
+        lv_label_set_text(status_label, update->text);
+        free(update);
+    }
+    lv_timer_del(timer);
+}
+
+static void schedule_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color) {
+    status_update_t *update = malloc(sizeof(status_update_t));
+    if (!update) return;
+    
+    update->text = text;
+    update->bg_color = bg_color;
+    update->text_color = text_color;
+    
+    lv_timer_t *timer = lv_timer_create(status_update_timer_cb, 0, update);
+    lv_timer_set_user_data(timer, update);  // Set user data using LVGL API
+    lv_timer_set_repeat_count(timer, 1);
+}
+
+// Update the TTS button handler
+void handle_tts_button(void) {
+    UI_DEBUG_PRINT("TTS button pressed");
+    
+    // Check if we're busy with other operations
+    if (is_recording || ai_is_processing || tts_in_progress) {
+        UI_DEBUG_PRINT("Cannot start TTS: system busy");
+        return;
+    }
+    
+    // If TTS is not in progress, start with first sentence
+    if (!tts_in_progress) {
+        // Get the current text from chat panel
+        const char* chat_text = lv_label_get_text(chat_content);
+        if (!chat_text || !*chat_text) {
+            UI_DEBUG_PRINT("No text to play");
+            return;
+        }
+        
+        // Store the text and initialize sentence pointer
+        if (current_text_for_tts) free(current_text_for_tts);
+        current_text_for_tts = strdup(chat_text);
+        next_sentence_ptr = current_text_for_tts;
+    }
+    
+    // If we have a next sentence, play it
+    char* sentence = get_next_sentence(current_text_for_tts, next_sentence_ptr);
+    if (sentence) {
+        tts_in_progress = true;
+        schedule_status_update("TTS IN PROGRESS", 
+                             lv_color_hex(0x000000),
+                             lv_color_hex(0xFFFFFF));
+        
+        // Update next sentence pointer
+        next_sentence_ptr += strlen(sentence);
+        
+        // Play the sentence
+        if (!audio_speak_text(sentence)) {
+            UI_DEBUG_PRINT("TTS playback failed");
+            handle_tts_end();
+        }
+        
+        free(sentence);
+    } else {
+        // No more sentences, reset
+        UI_DEBUG_PRINT("No more sentences to play");
+        if (current_text_for_tts) {
+            free(current_text_for_tts);
+            current_text_for_tts = NULL;
+        }
+        next_sentence_ptr = NULL;
+        tts_in_progress = false;
+        
+        schedule_status_update("PRESS LEFT BUTTON TO RECORD",
+                             lv_color_hex(0xDDDDDD),
+                             lv_color_hex(0x000000));
+    }
+}
+
+// Update the TTS end handler
+void handle_tts_end(void) {
+    UI_DEBUG_PRINT("TTS playback completed");
+    tts_in_progress = false;
+    
+    schedule_status_update("PRESS LEFT BUTTON TO RECORD",
+                          lv_color_hex(0xDDDDDD),
+                          lv_color_hex(0x000000));
+}
 
 int main(void)
 {
@@ -127,7 +270,7 @@ int main(void)
 
     // IP address indicator
     lv_obj_t * ip_label = lv_label_create(top_status_bar);
-    lv_label_set_text(ip_label, "OFFLINE QA AGENT DEMO");
+    lv_label_set_text(ip_label, "OFFLINE Q&A AGENT DEMO");
     lv_obj_align(ip_label, LV_ALIGN_CENTER, 0, 4);
     lv_obj_set_style_text_color(ip_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_opa(ip_label, LV_OPA_COVER, 0);  // Full opacity

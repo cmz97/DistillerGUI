@@ -15,4 +15,7 @@ lv_indev_t* uart_input_get_indev(void);
 // Get the input group (needed for main.c)
 lv_group_t* uart_input_get_group(void);
 
+// Add this declaration
+int uart_input_get_button_state(void);
+
 #endif /* UART_INPUT_H */ 
