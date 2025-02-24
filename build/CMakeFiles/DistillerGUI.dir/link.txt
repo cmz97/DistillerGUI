@@ -1,0 +1,1 @@
+/usr/bin/cc -g CMakeFiles/DistillerGUI.dir/main.c.o CMakeFiles/DistillerGUI.dir/monorama_14.c.o CMakeFiles/DistillerGUI.dir/eink_driver.c.o CMakeFiles/DistillerGUI.dir/lodepng.c.o -o DistillerGUI  liblvgl.a -lpthread -lgpiod 

@@ -1,0 +1,4 @@
+/home/distiller/DistillerGUI/build/CMakeFiles/lvgl.dir
+/home/distiller/DistillerGUI/build/CMakeFiles/DistillerGUI.dir
+/home/distiller/DistillerGUI/build/CMakeFiles/edit_cache.dir
+/home/distiller/DistillerGUI/build/CMakeFiles/rebuild_cache.dir
