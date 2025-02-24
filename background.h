@@ -1,8 +1,8 @@
-#ifndef IDLE_FRAME_H
-#define IDLE_FRAME_H
+#ifndef BACKGROUND_H
+#define BACKGROUND_H
 
 #include "lvgl/lvgl.h"
 
-extern const lv_image_dsc_t a;
+extern const lv_image_dsc_t background;
 
-#endif /* IDLE_FRAME_H */
+#endif /* BACKGROUND_H */

@@ -9,6 +9,9 @@
 #include "monorama_14.h"
 #include "background.h"
 
+// Add this declaration before main() if background.h doesn't declare it
+extern const lv_image_dsc_t background;  // Declare the external image descriptor
+
 static void hal_init(void);
 static void *tick_thread(void *data);
 static lv_obj_t *chat_content;  // Add this line
@@ -124,12 +127,17 @@ int main(void)
     lv_obj_set_style_radius(chat_panel, 8, 0);  // Rounded corners
     lv_obj_set_style_pad_all(chat_panel, 10, 0);  // Add padding
 
+    // Configure scrolling
+    lv_obj_set_style_pad_right(chat_panel, 5, 0);  // Add padding for scrollbar
+    lv_obj_set_scrollbar_mode(chat_panel, LV_SCROLLBAR_MODE_AUTO);  // Show scrollbar when needed
+    lv_obj_set_scroll_dir(chat_panel, LV_DIR_VER);  // Only allow vertical scrolling
+
     // Create a label for chat content - declare as global/static at top of file
     chat_content = lv_label_create(chat_panel);  // Initialize here
     lv_obj_set_width(chat_content, LV_PCT(100));
     lv_label_set_long_mode(chat_content, LV_LABEL_LONG_WRAP);  // Enable text wrapping
     lv_obj_set_style_text_color(chat_content, lv_color_hex(0x000000), 0);
-    lv_label_set_text(chat_content, "CHAT MESSAGES WILL APPEAR HERE...");
+    lv_label_set_text(chat_content, "AI RESPONSE WILL APPEAR HERE...");
 
     // Bottom status bar
     lv_obj_t * status_bar = lv_obj_create(bg);
@@ -165,7 +173,7 @@ int main(void)
         if (counter % 200 == 0) {  // Update every ~1 second (200 * 5ms)
             snprintf(chat_buffer, sizeof(chat_buffer), 
                     "CHAT MESSAGE %d\nTHIS IS A LONG MESSAGE THAT WILL WRAP "
-                    "TO THE NEXT LINE AUTOMATICALLY WHEN IT REACHES THE EDGE "
+                    "TO THE NEXT LINE AUTOMATICALLY WHEN IT REACHES THE EDGE SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
                     "OF THE PANEL.", counter/200);
             lv_label_set_text(chat_content, chat_buffer);
         }

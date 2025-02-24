@@ -33,6 +33,7 @@ add_executable(DistillerGUI
     monorama_14.c
     eink_driver.c
     lodepng.c
+    background.c
 )
 
 # Include directories for the main executable

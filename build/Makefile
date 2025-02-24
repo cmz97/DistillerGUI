@@ -142,6 +142,30 @@ DistillerGUI/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/build
 .PHONY : DistillerGUI/fast
 
+background.o: background.c.o
+.PHONY : background.o
+
+# target to build an object file
+background.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/background.c.o
+.PHONY : background.c.o
+
+background.i: background.c.i
+.PHONY : background.i
+
+# target to preprocess a source file
+background.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/background.c.i
+.PHONY : background.c.i
+
+background.s: background.c.s
+.PHONY : background.s
+
+# target to generate assembly for a file
+background.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/background.c.s
+.PHONY : background.c.s
+
 eink_driver.o: eink_driver.c.o
 .PHONY : eink_driver.o
 
@@ -9392,6 +9416,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... DistillerGUI"
 	@echo "... lvgl"
+	@echo "... background.o"
+	@echo "... background.i"
+	@echo "... background.s"
 	@echo "... eink_driver.o"
 	@echo "... eink_driver.i"
 	@echo "... eink_driver.s"
