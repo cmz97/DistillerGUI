@@ -128,45 +128,13 @@ static char* get_next_sentence(const char* text, const char* current_pos) {
     return sentence;
 }
 
-// Add this structure for TTS UI updates
-typedef struct {
-    const char* text;
-    lv_color_t bg_color;
-    lv_color_t text_color;
-} status_update_t;
-
-static void status_update_timer_cb(lv_timer_t *timer) {
-    status_update_t *update = (status_update_t*)lv_timer_get_user_data(timer);
-    if (update) {
-        lv_obj_set_style_bg_color(status_bar, update->bg_color, 0);
-        lv_obj_set_style_text_color(status_label, update->text_color, 0);
-        lv_label_set_text(status_label, update->text);
-        free(update);
-    }
-    lv_timer_del(timer);
-}
-
-static void schedule_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color) {
-    status_update_t *update = malloc(sizeof(status_update_t));
-    if (!update) return;
-    
-    update->text = text;
-    update->bg_color = bg_color;
-    update->text_color = text_color;
-    
-    lv_timer_t *timer = lv_timer_create(status_update_timer_cb, 0, update);
-    lv_timer_set_user_data(timer, update);  // Set user data using LVGL API
-    lv_timer_set_repeat_count(timer, 1);
-}
-
-// Update the TTS button handler
+// Update the TTS button handler to use direct UI updates for immediate feedback
 void handle_tts_button(void) {
     UI_DEBUG_PRINT("TTS button pressed");
     
     // Check if we're busy with other operations
     if (is_recording || ai_is_processing || tts_in_progress) {
         UI_DEBUG_PRINT("Cannot start TTS: system busy");
-        //print which one is busy
         if (is_recording) UI_DEBUG_PRINT("----> is_recording");
         if (ai_is_processing) UI_DEBUG_PRINT("----> ai_is_processing");
         if (tts_in_progress) UI_DEBUG_PRINT("----> tts_in_progress");
@@ -192,9 +160,10 @@ void handle_tts_button(void) {
     char* sentence = get_next_sentence(current_text_for_tts, next_sentence_ptr);
     if (sentence) {
         tts_in_progress = true;
-        schedule_status_update("TTS IN PROGRESS", 
-                             lv_color_hex(0x000000),
-                             lv_color_hex(0xFFFFFF));
+        // Update status bar immediately for user feedback
+        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(status_label, "TTS IN PROGRESS");
         
         // Update next sentence pointer
         next_sentence_ptr += strlen(sentence);
@@ -216,9 +185,10 @@ void handle_tts_button(void) {
         next_sentence_ptr = NULL;
         tts_in_progress = false;
         
-        schedule_status_update("PRESS LEFT BUTTON TO RECORD",
-                             lv_color_hex(0xDDDDDD),
-                             lv_color_hex(0x000000));
+        // Reset status bar immediately
+        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
+        lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
+        lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
     }
 }
 
@@ -227,9 +197,10 @@ void handle_tts_end(void) {
     UI_DEBUG_PRINT("TTS playback completed");
     tts_in_progress = false;
     
-    schedule_status_update("PRESS LEFT BUTTON TO RECORD",
-                          lv_color_hex(0xDDDDDD),
-                          lv_color_hex(0x000000));
+    // Reset status bar immediately
+    lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
+    lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
+    lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
 }
 
 // Add this near the top with other static variables
