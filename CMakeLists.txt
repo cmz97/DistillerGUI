@@ -41,6 +41,7 @@ add_executable(DistillerGUI
     uart_input.c
     audio.c
     api_client.c
+    font_distiller.c
 )
 
 # Then add Montserrat font configuration

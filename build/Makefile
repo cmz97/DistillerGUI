@@ -238,6 +238,30 @@ eink_driver.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/eink_driver.c.s
 .PHONY : eink_driver.c.s
 
+font_distiller.o: font_distiller.c.o
+.PHONY : font_distiller.o
+
+# target to build an object file
+font_distiller.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/font_distiller.c.o
+.PHONY : font_distiller.c.o
+
+font_distiller.i: font_distiller.c.i
+.PHONY : font_distiller.i
+
+# target to preprocess a source file
+font_distiller.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/font_distiller.c.i
+.PHONY : font_distiller.c.i
+
+font_distiller.s: font_distiller.c.s
+.PHONY : font_distiller.s
+
+# target to generate assembly for a file
+font_distiller.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/font_distiller.c.s
+.PHONY : font_distiller.c.s
+
 lodepng.o: lodepng.c.o
 .PHONY : lodepng.o
 
@@ -9476,6 +9500,9 @@ help:
 	@echo "... eink_driver.o"
 	@echo "... eink_driver.i"
 	@echo "... eink_driver.s"
+	@echo "... font_distiller.o"
+	@echo "... font_distiller.i"
+	@echo "... font_distiller.s"
 	@echo "... lodepng.o"
 	@echo "... lodepng.i"
 	@echo "... lodepng.s"

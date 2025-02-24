@@ -487,4 +487,5 @@ CMakeFiles/DistillerGUI.dir/main.c.o: /home/distiller/DistillerGUI/main.c \
  /home/distiller/DistillerGUI/background.h \
  /home/distiller/DistillerGUI/uart_input.h \
  /home/distiller/DistillerGUI/audio.h \
- /home/distiller/DistillerGUI/ui_callbacks.h
+ /home/distiller/DistillerGUI/ui_callbacks.h \
+ /home/distiller/DistillerGUI/font_distiller.h

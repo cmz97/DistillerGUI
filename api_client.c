@@ -456,6 +456,14 @@ void handle_stream_message(const char *message, void *user_data) {
     DEBUG_PRINT("Stream message: %s", message);
     static struct StreamContext ctx = {0};
     
+    // Check for end of stream first (empty message or special token)
+    if (!message || strlen(message) == 0 || strcmp(message, "[DONE]") == 0) {
+        DEBUG_PRINT("Stream ended");
+        // Reset state and update UI
+        handle_stream_end();
+        return;
+    }
+    
     // Check for question prefix
     if (strncmp(message, "question: --->", 13) == 0) {
         const char *question = message + 13;  // Skip prefix
@@ -518,14 +526,12 @@ void handle_stream_message(const char *message, void *user_data) {
         strcat(ctx.accumulated_answer + ctx.answer_size, answer);
         ctx.answer_size += answer_len;
         update_answer_text(ctx.accumulated_answer);
-        return;
-    }
-
-    // Check for end of stream (empty message or special token)
-    if (strlen(message) == 0 || strcmp(message, "[DONE]") == 0) {
-        DEBUG_PRINT("Stream ended");
-        // Call the UI handler function instead of directly updating UI
-        handle_stream_end();
+        
+        // Check if this is the last answer chunk (ends with a period)
+        if (answer[strlen(answer) - 1] == '.') {
+            DEBUG_PRINT("Final answer chunk detected, ending stream");
+            handle_stream_end();
+        }
         return;
     }
 }
@@ -561,7 +567,7 @@ void *api_send_thread_func(void *arg) {
     return NULL;
 }
 
-// Update the cleanup function
+// Update the cleanup function to ensure state is reset
 void api_stream_cleanup(void) {
     struct StreamContext *ctx = &(struct StreamContext){0};
     if (ctx->accumulated_answer) {
@@ -570,6 +576,6 @@ void api_stream_cleanup(void) {
         ctx->answer_size = 0;
         ctx->answer_capacity = 0;
     }
-    // Call the UI handler function instead of directly updating UI
+    // Always call handle_stream_end to ensure state is reset
     handle_stream_end();
 } 

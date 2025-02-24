@@ -10,6 +10,7 @@
 #include "uart_input.h"
 #include "audio.h"
 #include "ui_callbacks.h"
+#include "font_distiller.h"
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -80,9 +81,6 @@ static void my_rounder_cb(lv_event_t *e)
 // Add these function declarations
 void ui_update_thinking_text(const char *text);
 void ui_update_answer_text(const char *text);
-
-// Add this with other static variables
-static const lv_font_t *current_font;  // Store the current font
 
 // Add this function declaration at the top with other declarations
 void handle_stream_end(void);
@@ -270,16 +268,14 @@ static void hal_init(void)
     
     printf("Debug: Display setup complete\n");
     
-    // Set the font (using smaller Montserrat)
-    current_font = &lv_font_montserrat_12;
-    printf("Debug: Using Montserrat 12pt font\n");
+    printf("Debug: Using custom Distiller font\n");
     
-    // Set up the theme with the font
+    // Set up the theme with the custom font
     lv_theme_t * theme = lv_theme_default_init(disp,
         lv_color_black(),     // Primary color
         lv_color_white(),     // Secondary color
         false,                // Dark mode = false
-        current_font);        // Use Montserrat font
+        &font_distiller);     // Use custom Distiller font
     
     lv_disp_set_theme(disp, theme);
     
@@ -357,8 +353,8 @@ void handle_enter_key(void) {
         audio_stop_recording();
         ai_is_processing = true;
         got_question = false;
-        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
-        lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
         lv_label_set_text(status_label, "AI IS THINKING");
     }
 }
@@ -476,15 +472,12 @@ void ui_update_answer_text(const char *text) {
 void set_ui_font(bool use_custom_font) {
     lv_display_t *disp = lv_display_get_default();
     if (!disp) return;
-
-    // Always use Montserrat 12
-    current_font = &lv_font_montserrat_12;
     
     lv_theme_t *theme = lv_theme_default_init(disp,
         lv_color_black(),
         lv_color_white(),
         false,
-        current_font);
+        &font_distiller);  // Always use the custom font
     
     lv_disp_set_theme(disp, theme);
     lv_obj_invalidate(lv_scr_act());
@@ -494,5 +487,7 @@ void set_ui_font(bool use_custom_font) {
 void handle_stream_end(void) {
     UI_DEBUG_PRINT("Stream ended, resetting UI state");
     ai_is_processing = false;
+    lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
+    lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
     lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
 } 
