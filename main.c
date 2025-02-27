@@ -100,7 +100,7 @@ void handle_stream_end(void);
 // Add this function declaration at the top with other declarations
 static void queue_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color);
 
-// Add this helper function
+// Improve the get_next_sentence function to better handle sentence boundaries
 static char* get_next_sentence(const char* text, const char* current_pos) {
     if (!text || !*text) return NULL;
     
@@ -111,17 +111,36 @@ static char* get_next_sentence(const char* text, const char* current_pos) {
     while (*start && isspace(*start)) start++;
     if (!*start) return NULL;
     
-    // Find the end of the sentence
+    // Find the end of the sentence - look for ., !, ? followed by space or end of string
+    // Also consider section markers like "Thinking >" and "Answer >" as sentence boundaries
     const char* end = start;
     while (*end) {
-        if (*end == '.' || *end == '!' || *end == '?') {
+        // Check for sentence terminators
+        if ((*end == '.' || *end == '!' || *end == '?') && 
+            (end[1] == '\0' || isspace(end[1]))) {
             end++;
+            // Skip any trailing whitespace to position at the start of next sentence
+            while (*end && isspace(*end)) end++;
             break;
         }
+        
+        // Check for section markers (treat them as sentence boundaries)
+        if (strncmp(end, "\n\nThinking >", 12) == 0 || 
+            strncmp(end, "\n\nAnswer >", 10) == 0) {
+            // Don't include the newlines in the current sentence
+            break;
+        }
+        
         end++;
     }
     
-    // If we found no terminator but have text, use the whole remaining text
+    // If we reached the end without finding a sentence terminator
+    if (*end == '\0' && end > start) {
+        // Use the whole remaining text as one sentence
+        end = start + strlen(start);
+    }
+    
+    // If we found no text, return NULL
     if (end == start) return NULL;
     
     // Allocate and copy the sentence
@@ -132,36 +151,62 @@ static char* get_next_sentence(const char* text, const char* current_pos) {
     strncpy(sentence, start, len);
     sentence[len] = '\0';
     
+    // Trim trailing whitespace
+    char* p = sentence + len - 1;
+    while (p >= sentence && isspace(*p)) *p-- = '\0';
+    
+    UI_DEBUG_PRINT("Extracted sentence: '%s'", sentence);
+    UI_DEBUG_PRINT("Next position will be at offset: %ld", end - text);
+    
     return sentence;
 }
 
-// Update the TTS button handler to use the queue system
+// Add these timer callback functions at an appropriate place in the file
+static void reset_status_timer_cb(lv_timer_t *timer) {
+    queue_status_update("PRESS LEFT BUTTON TO RECORD", lv_color_hex(0xDDDDDD), lv_color_hex(0x000000));
+}
+
+// Update the TTS button handler to better manage state
 void handle_tts_button(void) {
     UI_DEBUG_PRINT("TTS button pressed");
     
     // Check if we're busy with other operations
-    if (is_recording || ai_is_processing || tts_in_progress) {
-        UI_DEBUG_PRINT("Cannot start TTS: system busy");
-        if (is_recording) UI_DEBUG_PRINT("----> is_recording");
-        if (ai_is_processing) UI_DEBUG_PRINT("----> ai_is_processing");
-        if (tts_in_progress) UI_DEBUG_PRINT("----> tts_in_progress");
+    if (is_recording || ai_is_processing) {
+        UI_DEBUG_PRINT("Cannot start TTS: system busy with recording or AI processing");
         return;
     }
     
-    // If TTS is not in progress, start with first sentence
-    if (!tts_in_progress) {
-        // Get the current text from chat panel
-        const char* chat_text = lv_label_get_text(chat_content);
-        if (!chat_text || !*chat_text) {
-            UI_DEBUG_PRINT("No text to play");
-            return;
-        }
+    // If TTS is already in progress, stop it and return
+    if (tts_in_progress) {
+        UI_DEBUG_PRINT("TTS in progress, stopping");
+        // Stop any ongoing TTS
+        audio_stop_playback();
+        tts_in_progress = false;
+        queue_status_update("TTS STOPPED", lv_color_hex(0xFF0000), lv_color_hex(0xFFFFFF));
         
-        // Store the text and initialize sentence pointer
-        if (current_text_for_tts) free(current_text_for_tts);
+        // Wait a moment then reset status
+        lv_timer_t *reset_timer = lv_timer_create(reset_status_timer_cb, 1000, NULL);
+        lv_timer_set_repeat_count(reset_timer, 1);
+        return;
+    }
+    
+    // Get the current text from chat panel
+    const char* chat_text = lv_label_get_text(chat_content);
+    if (!chat_text || !*chat_text) {
+        UI_DEBUG_PRINT("No text to play");
+        queue_status_update("NO TEXT TO READ", lv_color_hex(0xFF0000), lv_color_hex(0xFFFFFF));
+        
+        // Wait a moment then reset status
+        lv_timer_t *reset_timer = lv_timer_create(reset_status_timer_cb, 1000, NULL);
+        lv_timer_set_repeat_count(reset_timer, 1);
+        return;
+    }
+    
+    // Store the text and initialize sentence pointer if needed
+    if (!current_text_for_tts) {
+        UI_DEBUG_PRINT("Starting new TTS session");
         current_text_for_tts = strdup(chat_text);
         next_sentence_ptr = current_text_for_tts;
-        UI_DEBUG_PRINT("Starting new TTS session with text: %s", current_text_for_tts);
     }
     
     // If we have a next sentence, play it
@@ -171,10 +216,28 @@ void handle_tts_button(void) {
         // Update status bar using queue system
         queue_status_update("TTS IN PROGRESS", lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
         
-        // Update next sentence pointer to point after the current sentence
-        next_sentence_ptr = current_text_for_tts + (next_sentence_ptr - current_text_for_tts) + strlen(sentence);
-        UI_DEBUG_PRINT("Playing sentence: %s", sentence);
-        UI_DEBUG_PRINT("Next sentence will start at offset: %ld", next_sentence_ptr - current_text_for_tts);
+        // Calculate the next position correctly
+        // The next position should be where the current sentence ends in the original text
+        size_t current_offset = next_sentence_ptr - current_text_for_tts;
+        size_t sentence_len = strlen(sentence);
+        
+        // Find this sentence in the original text starting from current_offset
+        const char* found_pos = strstr(next_sentence_ptr, sentence);
+        if (found_pos) {
+            // Set next_sentence_ptr to just after this sentence in the original text
+            size_t new_offset = (found_pos - current_text_for_tts) + sentence_len;
+            next_sentence_ptr = current_text_for_tts + new_offset;
+            UI_DEBUG_PRINT("Found sentence at offset %ld, next position: %ld", 
+                          found_pos - current_text_for_tts, 
+                          next_sentence_ptr - current_text_for_tts);
+        } else {
+            // If we can't find it (shouldn't happen), just advance by the sentence length
+            next_sentence_ptr += sentence_len;
+            UI_DEBUG_PRINT("Sentence not found in text, advancing to offset: %ld", 
+                          next_sentence_ptr - current_text_for_tts);
+        }
+        
+        UI_DEBUG_PRINT("Playing sentence: '%s'", sentence);
         
         // Play the sentence
         if (!audio_speak_text(sentence)) {
@@ -193,8 +256,12 @@ void handle_tts_button(void) {
         next_sentence_ptr = NULL;
         tts_in_progress = false;
         
-        // Reset status bar using queue system
-        queue_status_update("PRESS LEFT BUTTON TO RECORD", lv_color_hex(0xDDDDDD), lv_color_hex(0x000000));
+        // Show completion message
+        queue_status_update("TTS COMPLETE", lv_color_hex(0x00AA00), lv_color_hex(0xFFFFFF));
+        
+        // Wait a moment then reset status
+        lv_timer_t *reset_timer = lv_timer_create(reset_status_timer_cb, 1000, NULL);
+        lv_timer_set_repeat_count(reset_timer, 1);
     }
 }
 

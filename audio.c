@@ -572,11 +572,33 @@ error:
     return false;
 }
 
+// Add this near the top with other static variables
+static volatile bool stop_playback_requested = false;
+
+// Add this function to stop playback
+void audio_stop_playback(void) {
+    DEBUG_PRINT("Stopping audio playback");
+    pthread_mutex_lock(&audio_mutex);
+    stop_playback_requested = true;
+    
+    // If playback handle is active, reset it
+    if (playback_handle) {
+        snd_pcm_drop(playback_handle);
+        snd_pcm_prepare(playback_handle);
+    }
+    pthread_mutex_unlock(&audio_mutex);
+}
+
 bool audio_play_buffer(const char *buffer, size_t buffer_size) {
     DEBUG_PRINT("Starting playback of %zu bytes", buffer_size);
     if (!init_playback_device()) {
         return false;
     }
+    
+    // Reset stop flag
+    pthread_mutex_lock(&audio_mutex);
+    stop_playback_requested = false;
+    pthread_mutex_unlock(&audio_mutex);
     
     // Skip WAV header
     const char *audio_data = buffer + 44;  // Standard WAV header size
@@ -600,19 +622,53 @@ bool audio_play_buffer(const char *buffer, size_t buffer_size) {
         stereo_buffer[i*2+1] = mono_data[i];   // Right channel
     }
     
-    DEBUG_PRINT("Writing %zu frames to playback device", frames);
-    snd_pcm_sframes_t written = snd_pcm_writei(playback_handle, stereo_buffer, frames);
+    // Play in smaller chunks to allow for stopping
+    const size_t CHUNK_SIZE = 1024;  // Process 1024 frames at a time
+    size_t frames_written = 0;
+    bool success = true;
     
-    if (written < 0) {
-        DEBUG_PRINT("Failed to write audio data: %s", snd_strerror(written));
-        free(stereo_buffer);
-        return false;
+    while (frames_written < frames) {
+        // Check if stop was requested
+        pthread_mutex_lock(&audio_mutex);
+        bool should_stop = stop_playback_requested;
+        pthread_mutex_unlock(&audio_mutex);
+        
+        if (should_stop) {
+            DEBUG_PRINT("Playback stopped by request");
+            success = false;
+            break;
+        }
+        
+        // Calculate frames to write in this chunk
+        size_t frames_to_write = (frames - frames_written < CHUNK_SIZE) ? 
+                                 (frames - frames_written) : CHUNK_SIZE;
+        
+        snd_pcm_sframes_t written = snd_pcm_writei(
+            playback_handle, 
+            stereo_buffer + (frames_written * 2),  // Pointer arithmetic for stereo data
+            frames_to_write
+        );
+        
+        if (written < 0) {
+            if (written == -EPIPE) {
+                // Underrun occurred, try to recover
+                snd_pcm_prepare(playback_handle);
+                DEBUG_PRINT("Buffer underrun, recovering");
+                continue;
+            } else {
+                DEBUG_PRINT("Failed to write audio data: %s", snd_strerror(written));
+                success = false;
+                break;
+            }
+        }
+        
+        frames_written += written;
     }
     
-    DEBUG_PRINT("Successfully wrote %ld frames", written);
+    DEBUG_PRINT("Successfully wrote %zu of %zu frames", frames_written, frames);
     snd_pcm_drain(playback_handle);
     free(stereo_buffer);
-    return true;
+    return success;
 }
 
 bool audio_speak_text(const char *text) {
@@ -627,9 +683,12 @@ bool audio_speak_text(const char *text) {
     bool success = audio_play_buffer(audio_data, audio_size);
     free(audio_data);
     
-    // Call the TTS end handler
-    extern void handle_tts_end(void);
-    handle_tts_end();
+    // Call the TTS end handler only if we completed successfully
+    // (not if we were stopped)
+    if (success) {
+        extern void handle_tts_end(void);
+        handle_tts_end();
+    }
     
     return success;
 }

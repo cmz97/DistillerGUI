@@ -26,4 +26,7 @@ bool audio_speak_text(const char *text);
 // Add this function declaration
 void audio_reset_state(void);
 
+// Add this function to stop playback
+void audio_stop_playback(void);
+
 #endif // AUDIO_H 
