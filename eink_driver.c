@@ -15,7 +15,13 @@
 static int spi_fd = -1;
 static uint8_t old_data[BUFFER_SIZE];
 
-static epd_mode_t current_mode = MODE_FAST;
+static epd_mode_t current_mode = MODE_PARTIAL;
+static epd_mode_t previous_mode = MODE_NONE;  // Track previous mode
+
+// Add these new variables for mode cycling
+static int flush_count = 0;
+static int FULL_REFRESH_CYCLE = 30;  // Number of flushes before doing a full refresh
+static bool first_flush = true;      // Flag for first flush
 
 // Add at the top with other globals
 static struct gpiod_chip *chip;
@@ -35,9 +41,6 @@ static void write_data(uint8_t data);
 static void spi_write_keep_cs(const uint8_t* data, size_t size);
 static void write_full_lut(void);
 static void save_pixels_as_png(const uint8_t* px_map, uint32_t width, uint32_t height, const char* filename);
-
-// Add to the top with other static variables
-static epd_mode_t previous_mode = MODE_NONE;  // Track previous mode
 
 // Mode switching function
 void eink_set_mode(epd_mode_t new_mode) {
@@ -674,7 +677,6 @@ static void flip_buffer_vertical(uint8_t* buffer, uint32_t width, uint32_t heigh
 
 void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map) {
     printf("Debug: Flush callback entered\n");
-    static int flush_count = 0;
     printf("\n=== Flush #%d ===\n", ++flush_count);
     
     uint32_t width = area->x2 - area->x1 + 1;
@@ -690,27 +692,65 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     // Flip the buffer vertically
     flip_buffer_vertical(px_map, width, height);
 
-    // Save PNG file (will show flipped result)
-    // char filename[64];
-    // snprintf(filename, sizeof(filename), "output/flush_%d.png", flush_count);
-    // save_pixels_as_png(px_map - 8, width, height, filename);  // Subtract 8 to include palette
+    // Determine which mode to use for this flush
+    epd_mode_t flush_mode;
+    
+    // For first flush, always use MODE_FAST for a clean start
+    if (first_flush) {
+        printf("Debug: First flush - using MODE_FAST\n");
+        flush_mode = MODE_FAST;
+        first_flush = false;
+    }
+    // Every FULL_REFRESH_CYCLE flushes, use MODE_FAST to clear artifacts
+    else if (flush_count % FULL_REFRESH_CYCLE == 0) {
+        printf("Debug: Periodic full refresh - using MODE_FAST\n");
+        flush_mode = MODE_FAST;
+    }
+    else {
+        // Use the primary mode for normal operation
+        flush_mode = current_mode;
+        printf("Debug: Using primary mode %d\n", flush_mode);
+    }
+    
+    // Switch to the required mode if needed
+    if (flush_mode != previous_mode) {
+        printf("Debug: Switching to mode %d from %d\n", flush_mode, previous_mode);
+        
+        // Initialize the new mode
+        switch(flush_mode) {
+            case MODE_NORMAL:
+                EPD_init();
+                break;
+            case MODE_4GRAY:
+                epd_w21_init_4g();
+                break;
+            case MODE_FAST:
+                EPD_init_Fast();
+                break;
+            case MODE_PARTIAL:
+                EPD_init_Part();
+                break;
+        }
+        
+        previous_mode = flush_mode;
+    }
 
     // Display the buffer according to current mode
-    switch(current_mode) {
+    switch(flush_mode) {
         case MODE_NORMAL:
-            pic_display(px_map, size);  // px_map is already 1-bit
+            pic_display(px_map, size);
             break;
             
         case MODE_4GRAY:
-            pic_display_4g(px_map, size);  // For 4-gray, needs special handling
+            pic_display_4g(px_map, size);
             break;
             
         case MODE_FAST:
-            pic_display_fast(px_map, size);  // px_map is already 1-bit
+            pic_display_fast(px_map, size);
             break;
             
         case MODE_PARTIAL:
-            pic_display_partial(px_map, size);  // px_map is already 1-bit
+            pic_display_partial(px_map, size);
             break;
     }
 
@@ -720,6 +760,10 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
 // Initialize the display
 void eink_init(void) {
     printf("Debug: Starting eink_init\n");
+    
+    // Reset flush counter and first_flush flag
+    flush_count = 0;
+    first_flush = true;
     
     // Create output directory
     ensure_output_dir();
