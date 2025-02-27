@@ -13,6 +13,7 @@
 #include "font_distiller.h"
 #include <ctype.h>
 #include <stdlib.h>
+#include "system_monitor.h"
 
 // Add this declaration before main() if background.h doesn't declare it
 extern const lv_image_dsc_t background;  // Declare the external image descriptor
@@ -263,6 +264,69 @@ static void queue_status_update(const char* text, lv_color_t bg_color, lv_color_
     status_queue.head = next_head;
 }
 
+// Add these variables at the top with other static variables
+static char chat_buffer[8192] = {0};  // Larger buffer for the entire conversation
+static bool has_content = false;      // Flag to track if we have any content
+
+// Add these structures to store update data for chat content
+typedef struct {
+    char buffer[8192];
+    bool has_content;
+} chat_update_data_t;
+
+// Add this as a static variable
+static chat_update_data_t chat_data = {0};
+static lv_timer_t *chat_update_timer = NULL;
+
+// Add this callback function for chat updates
+static void chat_update_timer_cb(lv_timer_t *timer) {
+    UI_DEBUG_PRINT("Chat update timer callback started");
+    
+    // Update the label with the current buffer content
+    lv_label_set_text(chat_content, chat_data.buffer);
+    
+    // Scroll to the bottom - but don't force refresh
+    lv_obj_scroll_to_y(lv_obj_get_parent(chat_content), LV_COORD_MAX, LV_ANIM_OFF);
+    
+    UI_DEBUG_PRINT("Chat text updated successfully");
+    chat_update_timer = NULL;  // Clear the reference
+}
+
+// Schedule a chat update using the timer system
+static void schedule_chat_update(void) {
+    // If a timer is already scheduled, we don't need to create another one
+    if (chat_update_timer) {
+        return;
+    }
+    
+    // Create a new timer for the update
+    chat_update_timer = lv_timer_create(chat_update_timer_cb, 0, NULL);
+    if (!chat_update_timer) {
+        UI_DEBUG_PRINT("Error: Failed to create chat update timer");
+        return;
+    }
+    lv_timer_set_repeat_count(chat_update_timer, 1);
+    UI_DEBUG_PRINT("Chat update timer created successfully");
+}
+
+// Add this with other static variables
+static lv_obj_t *system_info_label;
+static lv_timer_t *system_monitor_timer = NULL;
+
+// Add this callback function for system monitor updates
+static void system_monitor_timer_cb(lv_timer_t *timer) {
+    // Update system monitoring data
+    system_monitor_update();
+    
+    // Get formatted status string
+    char *status = system_monitor_get_status_string();
+    if (status) {
+        // Update the label
+        lv_label_set_text(system_info_label, status);
+        free(status);
+    }
+}
+
 int main(void)
 {
     printf("Debug: Starting main()\n");
@@ -303,45 +367,27 @@ int main(void)
     lv_obj_set_style_radius(top_status_bar, 8, 0);
     lv_obj_clear_flag(top_status_bar, LV_OBJ_FLAG_SCROLLABLE);
 
-    // IP address indicator
-    lv_obj_t * ip_label = lv_label_create(top_status_bar);
-    lv_label_set_text(ip_label, "OFFLINE Q&A AGENT DEMO");
-    lv_obj_align(ip_label, LV_ALIGN_CENTER, 0, 4);
-    lv_obj_set_style_text_color(ip_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_opa(ip_label, LV_OPA_COVER, 0);  // Full opacity
-    lv_obj_set_style_bg_opa(top_status_bar, LV_OPA_COVER, 0);  // Full background opacity
+    // Initialize system monitor
+    system_monitor_init();
 
-    // Chain of Thoughts panel - adjust height to be slightly smaller
-    lv_obj_t * cot_panel = lv_obj_create(bg);
-    lv_obj_set_size(cot_panel, LV_PCT(94), LV_PCT(28));  // Reduced from 33% to 28%
-    lv_obj_align_to(cot_panel, top_status_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-    lv_obj_set_style_bg_color(cot_panel, lv_color_hex(0xEEEEEE), 0);
-    lv_obj_set_style_bg_opa(cot_panel, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(cot_panel, 1, 0);
-    lv_obj_set_style_border_color(cot_panel, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_pad_all(cot_panel, 10, 0);
+    // System info label
+    system_info_label = lv_label_create(top_status_bar);
+    lv_label_set_text(system_info_label, "Initializing system monitor...");
+    lv_obj_align(system_info_label, LV_ALIGN_CENTER, 0, 4);
+    lv_obj_set_style_text_color(system_info_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_opa(system_info_label, LV_OPA_COVER, 0);
 
-    // CoT Header
-    lv_obj_t * cot_header = lv_label_create(cot_panel);
-    lv_label_set_text(cot_header, "CHAIN OF THOUGHTS");
-    lv_obj_align(cot_header, LV_ALIGN_TOP_MID, 0, 0);
-    
-    // Add padding below header
-    lv_obj_set_style_pad_bottom(cot_header, 10, 0);
+    // Create timer for system monitor updates (every 2 seconds)
+    system_monitor_timer = lv_timer_create(system_monitor_timer_cb, 2000, NULL);
+    lv_timer_set_repeat_count(system_monitor_timer, -1);  // Run indefinitely
 
-    // CoT Content - position it below the header
-    cot_content = lv_label_create(cot_panel);
-    lv_obj_set_width(cot_content, LV_PCT(100));
-    lv_label_set_long_mode(cot_content, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_color(cot_content, lv_color_hex(0x666666), 0);
-    lv_obj_align_to(cot_content, cot_header, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);  // Position below header
-    lv_label_set_text(cot_content, "Chain of thoughts will appear here...");
-
-    // Chat panel - reduce gap and adjust height
+    // Remove the Chain of Thoughts panel and make the chat panel taller
+    // Chat panel - now starts where CoT used to start
     lv_obj_t * chat_panel = lv_obj_create(bg);
     lv_obj_remove_style_all(chat_panel);
-    lv_obj_set_size(chat_panel, LV_PCT(94), LV_PCT(50));  // Reduced from 55% to 50%
-    lv_obj_align_to(chat_panel, cot_panel, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);  // Keep the 10px gap
+    // Adjust the height to account for equal margins top and bottom
+    lv_obj_set_size(chat_panel, LV_PCT(94), LV_PCT(80));  // Reduced from 83% to 80% to allow equal margins
+    lv_obj_align_to(chat_panel, top_status_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);  // Keep 10px top margin
     
     // Add styling to chat panel
     lv_obj_set_style_bg_color(chat_panel, lv_color_hex(0xFFFFFF), 0);
@@ -368,10 +414,11 @@ int main(void)
     // Add chat panel to input group here
     lv_group_add_obj(uart_input_get_group(), chat_panel);
 
-    // Bottom status bar - keep at the very bottom
+    // Bottom status bar - keep at the very bottom with same margin as top
     status_bar = lv_obj_create(bg);  // Make it use our static variable
     lv_obj_set_size(status_bar, LV_PCT(100), 30);
-    lv_obj_align(status_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
+    // Position it with the same 10px margin from the chat panel
+    lv_obj_align_to(status_bar, chat_panel, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);  // 10px bottom margin
     lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
     lv_obj_set_style_bg_opa(status_bar, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(status_bar, 1, 0);
@@ -409,6 +456,8 @@ int main(void)
     }
 
     audio_cleanup();  // Add this before return
+    // Clean up system monitor
+    system_monitor_cleanup();
     return 0;
 }
 
@@ -584,36 +633,21 @@ void ui_update_thinking_text(const char *text) {
         return;
     }
     
-    // Store label pointer if not already stored
-    if (!thinking_data.label) {
-        UI_DEBUG_PRINT("Initializing thinking_data.label");
-        thinking_data.label = cot_content;
-        if (!thinking_data.label) {
-            UI_DEBUG_PRINT("Error: cot_content is NULL");
-            return;
-        }
+    // If this is the first thinking text after a question, add a newline and "Thinking > " prefix
+    if (got_question && !strstr(chat_data.buffer, "Thinking > ")) {
+        strncat(chat_data.buffer, "\n    Thinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+    } else if (strstr(chat_data.buffer, "Thinking > ")) {
+        // If we already have thinking text, just append with a space
+        strncat(chat_data.buffer, " ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     }
     
-    // Copy text to our static buffer
-    UI_DEBUG_PRINT("Copying text to buffer");
-    strncpy(thinking_data.text, text, sizeof(thinking_data.text) - 1);
-    thinking_data.text[sizeof(thinking_data.text) - 1] = '\0';
+    // Append the new thinking text
+    strncat(chat_data.buffer, text, sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     
-    // Schedule the UI update for the next timer callback
-    UI_DEBUG_PRINT("Creating thinking timer");
-    if (thinking_timer) {
-        UI_DEBUG_PRINT("Deleting old thinking timer");
-        lv_timer_del(thinking_timer);
-        thinking_timer = NULL;
-    }
+    // Schedule the update instead of forcing it immediately
+    schedule_chat_update();
     
-    thinking_timer = lv_timer_create(thinking_timer_cb, 0, NULL);
-    if (!thinking_timer) {
-        UI_DEBUG_PRINT("Error: Failed to create thinking timer");
-        return;
-    }
-    lv_timer_set_repeat_count(thinking_timer, 1);
-    UI_DEBUG_PRINT("Thinking timer created successfully");
+    chat_data.has_content = true;
 }
 
 void ui_update_answer_text(const char *text) {
@@ -624,36 +658,50 @@ void ui_update_answer_text(const char *text) {
         return;
     }
     
-    // Store label pointer if not already stored
-    if (!answer_data.label) {
-        UI_DEBUG_PRINT("Initializing answer_data.label");
-        answer_data.label = chat_content;
-        if (!answer_data.label) {
-            UI_DEBUG_PRINT("Error: chat_content is NULL");
-            return;
+    // Check if this is a new question
+    if (strncmp(text, "Question:", 9) == 0) {
+        // If we already have content, add extra newlines for separation
+        if (chat_data.has_content) {
+            strncat(chat_data.buffer, "\n\n", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
         }
+        
+        // Replace "Question:" with "Question >"
+        char formatted_question[4096];
+        snprintf(formatted_question, sizeof(formatted_question), "Question %s", text + 9);
+        
+        // Clear buffer for new conversation if it's getting too large
+        if (strlen(chat_data.buffer) > sizeof(chat_data.buffer) - 5000) {
+            chat_data.buffer[0] = '\0';
+            chat_data.has_content = false;
+        }
+        
+        // Add the question to the buffer
+        strncat(chat_data.buffer, formatted_question, sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+    } 
+    // Check if this is an answer (not a question and not already in the buffer)
+    else if (!strstr(chat_data.buffer, "Answer > ")) {
+        // Add a newline and "Answer > " prefix
+        strncat(chat_data.buffer, "\n\nAnswer > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+        
+        // Add the answer text
+        strncat(chat_data.buffer, text, sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+    } 
+    // Otherwise, just append to the existing answer
+    else {
+        // First check if we need to add a space
+        size_t len = strlen(chat_data.buffer);
+        if (len > 0 && chat_data.buffer[len-1] != ' ' && chat_data.buffer[len-1] != '\n') {
+            strncat(chat_data.buffer, " ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+        }
+        
+        // Then append the new text
+        strncat(chat_data.buffer, text, sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     }
     
-    // Copy text to our static buffer
-    UI_DEBUG_PRINT("Copying text to buffer");
-    strncpy(answer_data.text, text, sizeof(answer_data.text) - 1);
-    answer_data.text[sizeof(answer_data.text) - 1] = '\0';
+    // Schedule the update instead of forcing it immediately
+    schedule_chat_update();
     
-    // Schedule the UI update for the next timer callback
-    UI_DEBUG_PRINT("Creating answer timer");
-    if (answer_timer) {
-        UI_DEBUG_PRINT("Deleting old answer timer");
-        lv_timer_del(answer_timer);
-        answer_timer = NULL;
-    }
-    
-    answer_timer = lv_timer_create(answer_timer_cb, 0, NULL);
-    if (!answer_timer) {
-        UI_DEBUG_PRINT("Error: Failed to create answer timer");
-        return;
-    }
-    lv_timer_set_repeat_count(answer_timer, 1);
-    UI_DEBUG_PRINT("Answer timer created successfully");
+    chat_data.has_content = true;
 }
 
 // Update or remove the font switching function
@@ -692,4 +740,11 @@ void handle_stream_end(void) {
     queue_status_update("PRESS LEFT BUTTON TO RECORD", 
                        lv_color_hex(0xDDDDDD),  // Light gray background
                        lv_color_hex(0x000000)); // Black text
+    
+    // Make sure the chat panel is scrollable with keyboard
+    lv_obj_t *chat_panel = lv_obj_get_parent(chat_content);
+    if (chat_panel) {
+        lv_obj_add_flag(chat_panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_group_add_obj(uart_input_get_group(), chat_panel);
+    }
 } 

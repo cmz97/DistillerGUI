@@ -9454,6 +9454,30 @@ main.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/main.c.s
 .PHONY : main.c.s
 
+system_monitor.o: system_monitor.c.o
+.PHONY : system_monitor.o
+
+# target to build an object file
+system_monitor.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/system_monitor.c.o
+.PHONY : system_monitor.c.o
+
+system_monitor.i: system_monitor.c.i
+.PHONY : system_monitor.i
+
+# target to preprocess a source file
+system_monitor.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/system_monitor.c.i
+.PHONY : system_monitor.c.i
+
+system_monitor.s: system_monitor.c.s
+.PHONY : system_monitor.s
+
+# target to generate assembly for a file
+system_monitor.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/system_monitor.c.s
+.PHONY : system_monitor.c.s
+
 uart_input.o: uart_input.c.o
 .PHONY : uart_input.o
 
@@ -10652,6 +10676,9 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... system_monitor.o"
+	@echo "... system_monitor.i"
+	@echo "... system_monitor.s"
 	@echo "... uart_input.o"
 	@echo "... uart_input.i"
 	@echo "... uart_input.s"

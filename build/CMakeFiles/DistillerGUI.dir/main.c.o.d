@@ -494,4 +494,5 @@ CMakeFiles/DistillerGUI.dir/main.c.o: /home/distiller/DistillerGUI/main.c \
  /usr/include/aarch64-linux-gnu/sys/types.h /usr/include/endian.h \
  /usr/include/aarch64-linux-gnu/bits/byteswap.h \
  /usr/include/aarch64-linux-gnu/bits/uintn-identity.h \
- /usr/include/alloca.h /usr/include/aarch64-linux-gnu/bits/stdlib-float.h
+ /usr/include/alloca.h /usr/include/aarch64-linux-gnu/bits/stdlib-float.h \
+ /home/distiller/DistillerGUI/system_monitor.h

@@ -498,34 +498,8 @@ void handle_stream_message(const char *message, void *user_data) {
         const char *answer = message + 11;  // Skip prefix
         DEBUG_PRINT("Answer: %s", answer);
         
-        // Allocate or reallocate buffer if needed
-        size_t answer_len = strlen(answer);
-        size_t needed_size = ctx.answer_size + answer_len + 2;  // +2 for space and null terminator
-        
-        if (needed_size > ctx.answer_capacity) {
-            size_t new_capacity = needed_size * 2;  // Double the needed size for future growth
-            char *new_buffer = realloc(ctx.accumulated_answer, new_capacity);
-            if (!new_buffer) {
-                DEBUG_PRINT("Failed to allocate memory for accumulated answer");
-                return;
-            }
-            ctx.accumulated_answer = new_buffer;
-            ctx.answer_capacity = new_capacity;
-        }
-        
-        // Add space between sentences if not first sentence
-        if (ctx.answer_size > 0) {
-            ctx.accumulated_answer[ctx.answer_size++] = ' ';
-            ctx.accumulated_answer[ctx.answer_size] = '\0';
-        } else {
-            // Initialize empty string for first answer
-            ctx.accumulated_answer[0] = '\0';
-        }
-        
-        // Append new answer and update display immediately
-        strcat(ctx.accumulated_answer + ctx.answer_size, answer);
-        ctx.answer_size += answer_len;
-        update_answer_text(ctx.accumulated_answer);
+        // For the new UI, we'll just pass each answer chunk directly
+        update_answer_text(answer);
         
         // Check if this is the last answer chunk (ends with a period)
         if (answer[strlen(answer) - 1] == '.') {

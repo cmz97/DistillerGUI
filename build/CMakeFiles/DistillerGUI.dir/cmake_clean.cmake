@@ -13,6 +13,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/DistillerGUI.dir/lodepng.c.o.d"
   "CMakeFiles/DistillerGUI.dir/main.c.o"
   "CMakeFiles/DistillerGUI.dir/main.c.o.d"
+  "CMakeFiles/DistillerGUI.dir/system_monitor.c.o"
+  "CMakeFiles/DistillerGUI.dir/system_monitor.c.o.d"
   "CMakeFiles/DistillerGUI.dir/uart_input.c.o"
   "CMakeFiles/DistillerGUI.dir/uart_input.c.o.d"
   "DistillerGUI"
