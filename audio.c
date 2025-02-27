@@ -421,8 +421,11 @@ void audio_stop_recording(void) {
     pthread_join(recording_thread, NULL);
     DEBUG_PRINT("Recording stopped");
     
-    // Signal the UI that recording has stopped
-    handle_enter_key();  // This will update the UI immediately
+    // Don't call handle_stream_end here, as it resets the AI processing flag
+    // We want to keep the AI IS THINKING status until we get a response
+    
+    // Instead, we'll let the API client handle the state transitions
+    // The AI processing flag will be reset when the stream ends
 }
 
 void audio_cleanup(void) {

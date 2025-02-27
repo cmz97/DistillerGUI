@@ -9,6 +9,14 @@
 
 #define DEBUG_PRINT(fmt, ...) printf("API Debug: " fmt "\n", ##__VA_ARGS__)
 
+// Add these at the top with other static variables
+#define TOKEN_BUFFER_SIZE 20
+#define TOKENS_PER_UPDATE 10  // Number of tokens to collect before updating UI
+static char token_buffer[TOKEN_BUFFER_SIZE] = {0};
+static size_t token_buffer_len = 0;
+static int token_count = 0;
+static char token_type[16] = {0};  // "thinking" or "answer"
+
 // Structure to hold response data
 struct ResponseData {
     char *data;
@@ -452,6 +460,7 @@ extern bool got_question;
 // Add this declaration
 extern void handle_stream_end(void);
 
+// Modify the handle_stream_message function to properly handle <think> tokens
 void handle_stream_message(const char *message, void *user_data) {
     DEBUG_PRINT("Stream message: %s", message);
     static struct StreamContext ctx = {0};
@@ -459,15 +468,101 @@ void handle_stream_message(const char *message, void *user_data) {
     // Check for end of stream first (empty message or special token)
     if (!message || strlen(message) == 0 || strcmp(message, "[DONE]") == 0) {
         DEBUG_PRINT("Stream ended");
+        
+        // Flush any remaining tokens in the buffer
+        if (token_buffer_len > 0) {
+            if (strcmp(token_type, "thinking") == 0) {
+                update_thinking_text(token_buffer);
+            } else if (strcmp(token_type, "answer") == 0) {
+                update_answer_text(token_buffer);
+            }
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+            token_type[0] = '\0';
+        }
+        
         // Reset state and update UI
         handle_stream_end();  // This will reset ai_is_processing
         return;
     }
     
-    // Check for question prefix
+    // Check for <think> prefix - this is a thinking token
+    if (strncmp(message, "<think>", 7) == 0 || 
+        (message[0] == '<' && message[1] == 't' && message[2] == 'h')) {
+        const char *thinking = message;
+        if (strncmp(message, "<think>", 7) == 0) {
+            thinking = message + 7;  // Skip prefix
+        }
+        DEBUG_PRINT("Thinking: %s", thinking);
+        
+        // If we were buffering a different type, flush it first
+        if (token_buffer_len > 0 && strcmp(token_type, "thinking") != 0) {
+            if (strcmp(token_type, "answer") == 0) {
+                update_answer_text(token_buffer);
+            }
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+        }
+        
+        // Set the token type to thinking
+        strcpy(token_type, "thinking");
+        
+        // Add to buffer
+        size_t thinking_len = strlen(thinking);
+        if (token_buffer_len + thinking_len + 1 < TOKEN_BUFFER_SIZE) {
+            // Add a space if needed
+            if (token_buffer_len > 0) {
+                strcat(token_buffer, " ");
+                token_buffer_len++;
+            }
+            
+            // Add the thinking text
+            strcat(token_buffer, thinking);
+            token_buffer_len += thinking_len;
+            token_count++;
+            
+            // If we've collected enough tokens, update the UI
+            if (token_count >= TOKENS_PER_UPDATE) {
+                update_thinking_text(token_buffer);
+                token_buffer[0] = '\0';
+                token_buffer_len = 0;
+                token_count = 0;
+            }
+        } else {
+            // Buffer is full, flush it
+            update_thinking_text(token_buffer);
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+            
+            // Start a new buffer with this token
+            strcpy(token_buffer, thinking);
+            token_buffer_len = thinking_len;
+            token_count = 1;
+        }
+        
+        return;
+    }
+    
+    // Check for question prefix - questions are handled immediately without buffering
     if (strncmp(message, "question: --->", 13) == 0) {
         const char *question = message + 13;  // Skip prefix
         DEBUG_PRINT("Question: %s", question);
+        
+        // Flush any existing buffer first
+        if (token_buffer_len > 0) {
+            if (strcmp(token_type, "thinking") == 0) {
+                update_thinking_text(token_buffer);
+            } else if (strcmp(token_type, "answer") == 0) {
+                update_answer_text(token_buffer);
+            }
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+            token_type[0] = '\0';
+        }
         
         // Format and display the question in chat panel
         char formatted_question[4096];
@@ -482,14 +577,7 @@ void handle_stream_message(const char *message, void *user_data) {
             ctx.answer_size = 0;
             ctx.answer_capacity = 0;
         }
-        return;
-    }
-    
-    // Check for thinking prefix
-    if (strncmp(message, "thinking: --->", 13) == 0) {
-        const char *thinking = message + 13;  // Skip prefix
-        DEBUG_PRINT("Thinking: %s", thinking);
-        update_thinking_text(thinking);
+        
         return;
     }
     
@@ -498,15 +586,100 @@ void handle_stream_message(const char *message, void *user_data) {
         const char *answer = message + 11;  // Skip prefix
         DEBUG_PRINT("Answer: %s", answer);
         
-        // For the new UI, we'll just pass each answer chunk directly
-        update_answer_text(answer);
-        
-        // Check if this is the last answer chunk (ends with a period)
-        if (answer[strlen(answer) - 1] == '.') {
-            DEBUG_PRINT("Final answer chunk detected, ending stream");
-            handle_stream_end();
+        // If we were buffering a different type, flush it first
+        if (token_buffer_len > 0 && strcmp(token_type, "answer") != 0) {
+            if (strcmp(token_type, "thinking") == 0) {
+                update_thinking_text(token_buffer);
+            }
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
         }
+        
+        // Set the token type to answer
+        strcpy(token_type, "answer");
+        
+        // Add to buffer
+        size_t answer_len = strlen(answer);
+        if (token_buffer_len + answer_len + 1 < TOKEN_BUFFER_SIZE) {
+            // Add a space if needed
+            if (token_buffer_len > 0) {
+                strcat(token_buffer, " ");
+                token_buffer_len++;
+            }
+            
+            // Add the answer text
+            strcat(token_buffer, answer);
+            token_buffer_len += answer_len;
+            token_count++;
+            
+            // If we've collected enough tokens, update the UI
+            if (token_count >= TOKENS_PER_UPDATE) {
+                update_answer_text(token_buffer);
+                token_buffer[0] = '\0';
+                token_buffer_len = 0;
+                token_count = 0;
+            }
+        } else {
+            // Buffer is full, flush it
+            update_answer_text(token_buffer);
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+            
+            // Start a new buffer with this token
+            strcpy(token_buffer, answer);
+            token_buffer_len = answer_len;
+            token_count = 1;
+        }
+        
         return;
+    }
+    
+    // For any other message, just add it to the current buffer
+    if (token_buffer_len > 0) {
+        size_t msg_len = strlen(message);
+        if (token_buffer_len + msg_len + 1 < TOKEN_BUFFER_SIZE) {
+            // Add a space if needed, unless it's punctuation
+            if (token_buffer_len > 0 && 
+                message[0] != '.' && message[0] != ',' && message[0] != '!' && 
+                message[0] != '?' && message[0] != ':' && message[0] != ';') {
+                strcat(token_buffer, " ");
+                token_buffer_len++;
+            }
+            
+            // Add the message
+            strcat(token_buffer, message);
+            token_buffer_len += msg_len;
+            token_count++;
+            
+            // If we've collected enough tokens, update the UI
+            if (token_count >= TOKENS_PER_UPDATE) {
+                if (strcmp(token_type, "thinking") == 0) {
+                    update_thinking_text(token_buffer);
+                } else if (strcmp(token_type, "answer") == 0) {
+                    update_answer_text(token_buffer);
+                }
+                token_buffer[0] = '\0';
+                token_buffer_len = 0;
+                token_count = 0;
+            }
+        } else {
+            // Buffer is full, flush it
+            if (strcmp(token_type, "thinking") == 0) {
+                update_thinking_text(token_buffer);
+            } else if (strcmp(token_type, "answer") == 0) {
+                update_answer_text(token_buffer);
+            }
+            token_buffer[0] = '\0';
+            token_buffer_len = 0;
+            token_count = 0;
+            
+            // Start a new buffer with this token
+            strcpy(token_buffer, message);
+            token_buffer_len = msg_len;
+            token_count = 1;
+        }
     }
 }
 

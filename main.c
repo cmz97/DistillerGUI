@@ -57,6 +57,9 @@ static char *current_text_for_tts = NULL;  // Store the full text
 static char *next_sentence_ptr = NULL;     // Track next sentence position
 static bool tts_in_progress = false;       // Track TTS state
 
+// Add this near the top with other static variables
+static bool system_monitoring_enabled = false;  // Set to false to disable monitoring
+
 // Add this debug macros at the top
 #define UI_DEBUG_PRINT(fmt, ...) printf("UI Debug: " fmt "\n", ##__VA_ARGS__)
 
@@ -313,18 +316,128 @@ static void schedule_chat_update(void) {
 static lv_obj_t *system_info_label;
 static lv_timer_t *system_monitor_timer = NULL;
 
-// Add this callback function for system monitor updates
+// Add this structure for system monitor updates
+typedef struct {
+    char text[64];
+} system_info_update_t;
+
+// Add this to the status update queue
+static system_info_update_t system_info_data = {0};
+static lv_timer_t *system_info_timer = NULL;
+
+// Add this callback function for system info updates
+static void system_info_timer_cb(lv_timer_t *timer) {
+    UI_DEBUG_PRINT("System info update timer callback started");
+    
+    // Update the label with the current system info
+    lv_label_set_text(system_info_label, system_info_data.text);
+    
+    UI_DEBUG_PRINT("System info updated successfully");
+    system_info_timer = NULL;  // Clear the reference
+}
+
+// Schedule a system info update using the timer system
+static void schedule_system_info_update(const char *text) {
+    // If a timer is already scheduled, we don't need to create another one
+    if (system_info_timer) {
+        return;
+    }
+    
+    // Copy the text to our static buffer
+    strncpy(system_info_data.text, text, sizeof(system_info_data.text) - 1);
+    system_info_data.text[sizeof(system_info_data.text) - 1] = '\0';
+    
+    // Create a new timer for the update
+    system_info_timer = lv_timer_create(system_info_timer_cb, 0, NULL);
+    if (!system_info_timer) {
+        UI_DEBUG_PRINT("Error: Failed to create system info update timer");
+        return;
+    }
+    lv_timer_set_repeat_count(system_info_timer, 1);
+    UI_DEBUG_PRINT("System info update timer created successfully");
+}
+
+// Modify the system_monitor_timer_cb function to check this flag
 static void system_monitor_timer_cb(lv_timer_t *timer) {
+    // Skip if monitoring is disabled
+    if (!system_monitoring_enabled) {
+        return;
+    }
+    
     // Update system monitoring data
     system_monitor_update();
     
     // Get formatted status string
     char *status = system_monitor_get_status_string();
     if (status) {
-        // Update the label
-        lv_label_set_text(system_info_label, status);
+        // Schedule the update instead of updating directly
+        schedule_system_info_update(status);
         free(status);
     }
+}
+
+// Add this structure for stream end handling
+typedef struct {
+    bool dummy;  // Just a placeholder since we don't need data
+} stream_end_data_t;
+
+// Add this to the static variables
+static stream_end_data_t stream_end_data = {0};
+static lv_timer_t *stream_end_timer = NULL;
+
+// Add this callback function for stream end handling
+static void stream_end_timer_cb(lv_timer_t *timer) {
+    UI_DEBUG_PRINT("Stream end timer callback started");
+    
+    // Reset flags
+    ai_is_processing = false;
+    is_recording = false;
+    
+    // Force reset the audio recording state
+    extern bool is_audio_recording(void);
+    extern void audio_reset_state(void);
+    
+    if (is_audio_recording()) {
+        UI_DEBUG_PRINT("Audio still recording after stream end, forcing reset");
+        audio_reset_state();
+    }
+    
+    // Queue the status update instead of updating directly
+    queue_status_update("PRESS LEFT BUTTON TO RECORD", 
+                       lv_color_hex(0xDDDDDD),  // Light gray background
+                       lv_color_hex(0x000000)); // Black text
+    
+    // Make sure the chat panel is scrollable with keyboard
+    lv_obj_t *chat_panel = lv_obj_get_parent(chat_content);
+    if (chat_panel) {
+        lv_obj_add_flag(chat_panel, LV_OBJ_FLAG_SCROLLABLE);
+        lv_group_add_obj(uart_input_get_group(), chat_panel);
+    }
+    
+    stream_end_timer = NULL;  // Clear the reference
+}
+
+// Schedule a stream end update using the timer system
+static void schedule_stream_end(void) {
+    // If a timer is already scheduled, we don't need to create another one
+    if (stream_end_timer) {
+        return;
+    }
+    
+    // Create a new timer for the update
+    stream_end_timer = lv_timer_create(stream_end_timer_cb, 0, NULL);
+    if (!stream_end_timer) {
+        UI_DEBUG_PRINT("Error: Failed to create stream end timer");
+        return;
+    }
+    lv_timer_set_repeat_count(stream_end_timer, 1);
+    UI_DEBUG_PRINT("Stream end timer created successfully");
+}
+
+// Update the handle_stream_end function to use the timer
+void handle_stream_end(void) {
+    UI_DEBUG_PRINT("Stream ended, scheduling UI state reset");
+    schedule_stream_end();
 }
 
 int main(void)
@@ -377,9 +490,14 @@ int main(void)
     lv_obj_set_style_text_color(system_info_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_opa(system_info_label, LV_OPA_COVER, 0);
 
-    // Create timer for system monitor updates (every 2 seconds)
-    system_monitor_timer = lv_timer_create(system_monitor_timer_cb, 2000, NULL);
-    lv_timer_set_repeat_count(system_monitor_timer, -1);  // Run indefinitely
+    // Create timer for system monitor updates only if enabled
+    if (system_monitoring_enabled) {
+        system_monitor_timer = lv_timer_create(system_monitor_timer_cb, 2000, NULL);
+        lv_timer_set_repeat_count(system_monitor_timer, -1);  // Run indefinitely
+    } else {
+        // Set a static message when monitoring is disabled
+        lv_label_set_text(system_info_label, "System monitoring disabled");
+    }
 
     // Remove the Chain of Thoughts panel and make the chat panel taller
     // Chat panel - now starts where CoT used to start
@@ -559,7 +677,7 @@ static void *tick_thread(void *data)
     return NULL;
 }
 
-// Update the handle_enter_key function to use the queue system
+// Update the handle_enter_key function to properly set the status when stopping recording
 void handle_enter_key(void) {
     if (ai_is_processing) {
         UI_DEBUG_PRINT("AI is still processing, ignoring record button");
@@ -585,8 +703,10 @@ void handle_enter_key(void) {
         if (is_audio_recording()) {
             // Stop recording and indicate AI is thinking
             audio_stop_recording();
-            ai_is_processing = true;
+            ai_is_processing = true;  // Set this flag to indicate AI is processing
             got_question = false;
+            
+            // Make sure we update the status to show AI is thinking
             queue_status_update("AI IS THINKING", lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
         } else {
             // Reset state if we weren't actually recording
@@ -639,6 +759,9 @@ void ui_update_thinking_text(const char *text) {
     } else if (strstr(chat_data.buffer, "Thinking > ")) {
         // If we already have thinking text, just append with a space
         strncat(chat_data.buffer, " ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+    } else {
+        // If we don't have a question yet but received thinking text, start with "Thinking > "
+        strncat(chat_data.buffer, "    Thinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     }
     
     // Append the new thinking text
@@ -717,34 +840,4 @@ void set_ui_font(bool use_custom_font) {
     
     lv_disp_set_theme(disp, theme);
     lv_obj_invalidate(lv_scr_act());
-}
-
-// Update handle_stream_end function to properly reset audio state
-void handle_stream_end(void) {
-    UI_DEBUG_PRINT("Stream ended, resetting UI state");
-    
-    // Reset flags first
-    ai_is_processing = false;
-    is_recording = false;
-    
-    // Force reset the audio recording state
-    extern bool is_audio_recording(void);
-    extern void audio_reset_state(void);
-    
-    if (is_audio_recording()) {
-        UI_DEBUG_PRINT("Audio still recording after stream end, forcing reset");
-        audio_reset_state();
-    }
-    
-    // Queue the status update instead of updating directly
-    queue_status_update("PRESS LEFT BUTTON TO RECORD", 
-                       lv_color_hex(0xDDDDDD),  // Light gray background
-                       lv_color_hex(0x000000)); // Black text
-    
-    // Make sure the chat panel is scrollable with keyboard
-    lv_obj_t *chat_panel = lv_obj_get_parent(chat_content);
-    if (chat_panel) {
-        lv_obj_add_flag(chat_panel, LV_OBJ_FLAG_SCROLLABLE);
-        lv_group_add_obj(uart_input_get_group(), chat_panel);
-    }
 } 
