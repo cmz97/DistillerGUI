@@ -23,4 +23,7 @@ bool is_audio_recording(void);
 bool audio_play_buffer(const char *buffer, size_t buffer_size);
 bool audio_speak_text(const char *text);
 
+// Add this function declaration
+void audio_reset_state(void);
+
 #endif // AUDIO_H 

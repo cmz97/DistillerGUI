@@ -629,4 +629,31 @@ bool audio_speak_text(const char *text) {
     handle_tts_end();
     
     return success;
+}
+
+// Add this function to force reset the recording state
+void audio_reset_state(void) {
+    DEBUG_PRINT("Forcing audio state reset");
+    pthread_mutex_lock(&audio_mutex);
+    
+    if (is_recording) {
+        DEBUG_PRINT("Resetting recording flag");
+        is_recording = false;
+        pthread_mutex_unlock(&audio_mutex);
+        
+        // If there's an active recording thread, wait for it to finish
+        // Use a safer approach without pthread_kill
+        int join_result = pthread_join(recording_thread, NULL);
+        if (join_result == 0) {
+            DEBUG_PRINT("Recording thread joined successfully");
+        } else if (join_result == ESRCH) {
+            DEBUG_PRINT("Recording thread does not exist");
+        } else {
+            DEBUG_PRINT("Failed to join recording thread: %s", strerror(join_result));
+        }
+    } else {
+        pthread_mutex_unlock(&audio_mutex);
+    }
+    
+    DEBUG_PRINT("Audio state reset complete");
 } 

@@ -93,6 +93,9 @@ void handle_tts_end(void);  // Add this declaration
 // Add this function declaration at the top with other declarations
 void handle_stream_end(void);
 
+// Add this function declaration at the top with other declarations
+static void queue_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color);
+
 // Add this helper function
 static char* get_next_sentence(const char* text, const char* current_pos) {
     if (!text || !*text) return NULL;
@@ -128,7 +131,7 @@ static char* get_next_sentence(const char* text, const char* current_pos) {
     return sentence;
 }
 
-// Update the TTS button handler to use direct UI updates for immediate feedback
+// Update the TTS button handler to use the queue system
 void handle_tts_button(void) {
     UI_DEBUG_PRINT("TTS button pressed");
     
@@ -154,19 +157,20 @@ void handle_tts_button(void) {
         if (current_text_for_tts) free(current_text_for_tts);
         current_text_for_tts = strdup(chat_text);
         next_sentence_ptr = current_text_for_tts;
+        UI_DEBUG_PRINT("Starting new TTS session with text: %s", current_text_for_tts);
     }
     
     // If we have a next sentence, play it
     char* sentence = get_next_sentence(current_text_for_tts, next_sentence_ptr);
     if (sentence) {
         tts_in_progress = true;
-        // Update status bar immediately for user feedback
-        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_text(status_label, "TTS IN PROGRESS");
+        // Update status bar using queue system
+        queue_status_update("TTS IN PROGRESS", lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
         
-        // Update next sentence pointer
-        next_sentence_ptr += strlen(sentence);
+        // Update next sentence pointer to point after the current sentence
+        next_sentence_ptr = current_text_for_tts + (next_sentence_ptr - current_text_for_tts) + strlen(sentence);
+        UI_DEBUG_PRINT("Playing sentence: %s", sentence);
+        UI_DEBUG_PRINT("Next sentence will start at offset: %ld", next_sentence_ptr - current_text_for_tts);
         
         // Play the sentence
         if (!audio_speak_text(sentence)) {
@@ -185,10 +189,8 @@ void handle_tts_button(void) {
         next_sentence_ptr = NULL;
         tts_in_progress = false;
         
-        // Reset status bar immediately
-        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
-        lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
-        lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
+        // Reset status bar using queue system
+        queue_status_update("PRESS LEFT BUTTON TO RECORD", lv_color_hex(0xDDDDDD), lv_color_hex(0x000000));
     }
 }
 
@@ -197,10 +199,8 @@ void handle_tts_end(void) {
     UI_DEBUG_PRINT("TTS playback completed");
     tts_in_progress = false;
     
-    // Reset status bar immediately
-    lv_obj_set_style_bg_color(status_bar, lv_color_hex(0xDDDDDD), 0);
-    lv_obj_set_style_text_color(status_label, lv_color_hex(0x000000), 0);
-    lv_label_set_text(status_label, "PRESS LEFT BUTTON TO RECORD");
+    // Reset status bar using queue system
+    queue_status_update("PRESS LEFT BUTTON TO RECORD", lv_color_hex(0xDDDDDD), lv_color_hex(0x000000));
 }
 
 // Add this near the top with other static variables
@@ -221,12 +221,13 @@ typedef struct {
 
 static status_update_queue_t status_queue = {0};
 
+// Update the process_status_updates function to avoid using internal LVGL fields
 static void process_status_updates(lv_timer_t *timer) {
     if (status_queue.head == status_queue.tail) {
         return;  // Queue is empty
     }
     
-    // Process one update
+    // Process one update - removed the rendering check since it's not accessible
     status_update_info_t *update = &status_queue.updates[status_queue.tail];
     lv_obj_set_style_bg_color(status_bar, update->bg_color, 0);
     lv_obj_set_style_text_color(status_label, update->text_color, 0);
@@ -236,26 +237,30 @@ static void process_status_updates(lv_timer_t *timer) {
     status_queue.tail = (status_queue.tail + 1) % MAX_STATUS_UPDATES;
 }
 
+// Keep the implementation the same
 static void queue_status_update(const char* text, lv_color_t bg_color, lv_color_t text_color) {
+    // Create or ensure timer exists first
+    if (!status_queue.process_timer) {
+        status_queue.process_timer = lv_timer_create(process_status_updates, 50, NULL);
+        lv_timer_set_repeat_count(status_queue.process_timer, -1);
+    }
+    
+    // Then queue the update
     int next_head = (status_queue.head + 1) % MAX_STATUS_UPDATES;
     if (next_head == status_queue.tail) {
-        return;  // Queue is full
+        UI_DEBUG_PRINT("Status update queue full, dropping update");
+        return;
     }
     
     // Add update to queue
     status_update_info_t *update = &status_queue.updates[status_queue.head];
     strncpy(update->text, text, sizeof(update->text) - 1);
+    update->text[sizeof(update->text) - 1] = '\0';
     update->bg_color = bg_color;
     update->text_color = text_color;
     
     // Move head forward
     status_queue.head = next_head;
-    
-    // Ensure timer is running
-    if (!status_queue.process_timer) {
-        status_queue.process_timer = lv_timer_create(process_status_updates, 50, NULL);
-        lv_timer_set_repeat_count(status_queue.process_timer, -1);  // Run indefinitely
-    }
 }
 
 int main(void)
@@ -505,35 +510,40 @@ static void *tick_thread(void *data)
     return NULL;
 }
 
-// Update the handle_enter_key function
+// Update the handle_enter_key function to use the queue system
 void handle_enter_key(void) {
     if (ai_is_processing) {
         UI_DEBUG_PRINT("AI is still processing, ignoring record button");
         return;
     }
 
+    // Toggle recording state
     is_recording = !is_recording;  
     
     if (is_recording) {
         // Start recording
-        if (audio_start_recording()) {
-            lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
-            lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
-            lv_label_set_text(status_label, "RECORDING NOW");
-        } else {
-            // If recording failed to start
-            is_recording = false;
-            lv_label_set_text(status_label, "RECORDING FAILED!");
+        if (!audio_start_recording()) {  // Check return value and handle failure
+            UI_DEBUG_PRINT("Failed to start recording");
+            is_recording = false;  // Reset flag if recording failed
+            queue_status_update("RECORDING FAILED!", lv_color_hex(0xFF0000), lv_color_hex(0xFFFFFF));
+            return;
         }
+        
+        // Recording started successfully
+        queue_status_update("RECORDING NOW", lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
     } else {
-        // Stop recording and indicate AI is thinking
-        audio_stop_recording();
-        is_recording = false;
-        ai_is_processing = true;
-        got_question = false;
-        lv_obj_set_style_bg_color(status_bar, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_text_color(status_label, lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_text(status_label, "AI IS THINKING");
+        // Only set AI processing flag if we were actually recording
+        if (is_audio_recording()) {
+            // Stop recording and indicate AI is thinking
+            audio_stop_recording();
+            ai_is_processing = true;
+            got_question = false;
+            queue_status_update("AI IS THINKING", lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+        } else {
+            // Reset state if we weren't actually recording
+            is_recording = false;
+            queue_status_update("PRESS LEFT BUTTON TO RECORD", lv_color_hex(0xDDDDDD), lv_color_hex(0x000000));
+        }
     }
 }
 
@@ -661,11 +671,25 @@ void set_ui_font(bool use_custom_font) {
     lv_obj_invalidate(lv_scr_act());
 }
 
-// Add this function implementation
+// Update handle_stream_end function to properly reset audio state
 void handle_stream_end(void) {
     UI_DEBUG_PRINT("Stream ended, resetting UI state");
+    
+    // Reset flags first
     ai_is_processing = false;
-    queue_status_update("PRESS LEFT BUTTON TO RECORD",
-                        lv_color_hex(0xDDDDDD),
-                        lv_color_hex(0x000000));
+    is_recording = false;
+    
+    // Force reset the audio recording state
+    extern bool is_audio_recording(void);
+    extern void audio_reset_state(void);
+    
+    if (is_audio_recording()) {
+        UI_DEBUG_PRINT("Audio still recording after stream end, forcing reset");
+        audio_reset_state();
+    }
+    
+    // Queue the status update instead of updating directly
+    queue_status_update("PRESS LEFT BUTTON TO RECORD", 
+                       lv_color_hex(0xDDDDDD),  // Light gray background
+                       lv_color_hex(0x000000)); // Black text
 } 

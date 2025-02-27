@@ -691,9 +691,9 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     flip_buffer_vertical(px_map, width, height);
 
     // Save PNG file (will show flipped result)
-    char filename[64];
-    snprintf(filename, sizeof(filename), "output/flush_%d.png", flush_count);
-    save_pixels_as_png(px_map - 8, width, height, filename);  // Subtract 8 to include palette
+    // char filename[64];
+    // snprintf(filename, sizeof(filename), "output/flush_%d.png", flush_count);
+    // save_pixels_as_png(px_map - 8, width, height, filename);  // Subtract 8 to include palette
 
     // Display the buffer according to current mode
     switch(current_mode) {

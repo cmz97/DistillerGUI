@@ -460,7 +460,7 @@ void handle_stream_message(const char *message, void *user_data) {
     if (!message || strlen(message) == 0 || strcmp(message, "[DONE]") == 0) {
         DEBUG_PRINT("Stream ended");
         // Reset state and update UI
-        handle_stream_end();
+        handle_stream_end();  // This will reset ai_is_processing
         return;
     }
     
