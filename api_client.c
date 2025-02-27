@@ -488,7 +488,7 @@ void handle_stream_message(const char *message, void *user_data) {
     }
     
     // Check for <think> prefix - this is a thinking token
-    if (strncmp(message, "<think>", 7) == 0 || 
+    if (strncmp(message, "thinking: --->", 7) == 0 || 
         (message[0] == '<' && message[1] == 't' && message[2] == 'h')) {
         const char *thinking = message;
         if (strncmp(message, "<think>", 7) == 0) {

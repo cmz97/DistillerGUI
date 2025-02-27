@@ -677,7 +677,7 @@ static void *tick_thread(void *data)
     return NULL;
 }
 
-// Update the handle_enter_key function to properly set the status when stopping recording
+// Update the handle_enter_key function to reset chat panel when starting a new recording
 void handle_enter_key(void) {
     if (ai_is_processing) {
         UI_DEBUG_PRINT("AI is still processing, ignoring record button");
@@ -688,6 +688,11 @@ void handle_enter_key(void) {
     is_recording = !is_recording;  
     
     if (is_recording) {
+        // Clear the chat panel when starting a new recording
+        chat_data.buffer[0] = '\0';
+        chat_data.has_content = false;
+        schedule_chat_update();
+        
         // Start recording
         if (!audio_start_recording()) {  // Check return value and handle failure
             UI_DEBUG_PRINT("Failed to start recording");
@@ -745,6 +750,7 @@ static void answer_timer_cb(lv_timer_t *timer) {
     answer_timer = NULL;  // Clear the reference
 }
 
+// Update the ui_update_thinking_text function to improve formatting
 void ui_update_thinking_text(const char *text) {
     UI_DEBUG_PRINT("ui_update_thinking_text called with text: %s", text ? text : "NULL");
     
@@ -755,13 +761,13 @@ void ui_update_thinking_text(const char *text) {
     
     // If this is the first thinking text after a question, add a newline and "Thinking > " prefix
     if (got_question && !strstr(chat_data.buffer, "Thinking > ")) {
-        strncat(chat_data.buffer, "\n    Thinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+        strncat(chat_data.buffer, "\n\nThinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     } else if (strstr(chat_data.buffer, "Thinking > ")) {
         // If we already have thinking text, just append with a space
         strncat(chat_data.buffer, " ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     } else {
         // If we don't have a question yet but received thinking text, start with "Thinking > "
-        strncat(chat_data.buffer, "    Thinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+        strncat(chat_data.buffer, "Thinking > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
     }
     
     // Append the new thinking text
@@ -773,6 +779,7 @@ void ui_update_thinking_text(const char *text) {
     chat_data.has_content = true;
 }
 
+// Update the ui_update_answer_text function to improve formatting
 void ui_update_answer_text(const char *text) {
     UI_DEBUG_PRINT("ui_update_answer_text called with text: %s", text ? text : "NULL");
     
@@ -785,7 +792,7 @@ void ui_update_answer_text(const char *text) {
     if (strncmp(text, "Question:", 9) == 0) {
         // If we already have content, add extra newlines for separation
         if (chat_data.has_content) {
-            strncat(chat_data.buffer, "\n\n", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+            strncat(chat_data.buffer, "\n\n\n", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
         }
         
         // Replace "Question:" with "Question >"
@@ -803,8 +810,8 @@ void ui_update_answer_text(const char *text) {
     } 
     // Check if this is an answer (not a question and not already in the buffer)
     else if (!strstr(chat_data.buffer, "Answer > ")) {
-        // Add a newline and "Answer > " prefix
-        strncat(chat_data.buffer, "\n\nAnswer > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
+        // Add a newline and "Answer > " prefix with extra spacing
+        strncat(chat_data.buffer, "\n\n\nAnswer > ", sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
         
         // Add the answer text
         strncat(chat_data.buffer, text, sizeof(chat_data.buffer) - strlen(chat_data.buffer) - 1);
