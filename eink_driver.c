@@ -68,6 +68,12 @@ void eink_set_mode(epd_mode_t new_mode) {
         case MODE_PARTIAL:
             EPD_init_Part();
             break;
+        case MODE_180:
+            EPD_Init_180();
+            break;
+		case MODE_GUI:
+            EPD_Init_GUI();
+            break;
         default:
             printf("Error: Invalid mode %d\n", new_mode);
             return;

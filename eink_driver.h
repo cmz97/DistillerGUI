@@ -24,11 +24,13 @@
 
 // Display refresh modes
 typedef enum {
-    MODE_NONE,   // Initial state
-    MODE_NORMAL, // Normal mode (EPD_Display)
-    MODE_4GRAY,  // 4 gray levels
-    MODE_FAST,   // Fast update
-    MODE_PARTIAL // Partial update
+    MODE_NONE,    // Initial state
+    MODE_NORMAL,  // Normal mode (EPD_Display)
+    MODE_4GRAY,   // 4 gray levels
+    MODE_FAST,    // Fast update
+    MODE_PARTIAL, // Partial update
+    MODE_180,     // 180 degree rotation
+    MODE_GUI,     // GUI mode (for LVGL)
 } epd_mode_t;
 
 // Basic driver functions
@@ -47,6 +49,8 @@ void pic_display_4g(const uint8_t* data, size_t size);
 void EPD_init(void);
 void EPD_init_Fast(void);
 void EPD_init_Part(void);
+void EPD_Init_180(void);
+void EPD_Init_GUI(void);
 void epd_w21_init_4g(void);
 void EPD_Display(unsigned char *Image);
 void EPD_sleep(void);
