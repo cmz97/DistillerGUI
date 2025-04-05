@@ -554,6 +554,10 @@ void pic_display_4g(const uint8_t *data, size_t size)
 	total_spi_bytes = 0; // Reset counter at start
 	printf("Debug: Starting pic_display_4g\n");
 	printf("Debug: Starting 4G display with %zu bytes\n", size);
+	if (!data || size == 0 || size > BUFFER_SIZE * 2) {
+		printf("Error: Invalid data or size\n");
+		return;
+	}
 
 	// Command to start transmitting old data
 	EPD_W21_WriteCMD(0x10);
