@@ -769,50 +769,23 @@ void eink_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 	// Flip the buffer vertically
 	flip_buffer_vertical(px_map, width, height);
 
-	// Determine which mode to use for this flush
-	epd_mode_t flush_mode;
-
 	// For first flush, always use MODE_FAST for a clean start
+	epd_mode_t flush_mode =
+		(first_flush || flush_count % FULL_REFRESH_CYCLE == 0) ?
+			MODE_FAST :
+			current_mode;
 	if (first_flush) {
 		printf("Debug: First flush - using MODE_FAST\n");
-		flush_mode = MODE_FAST;
 		first_flush = false;
-	}
-	// Every FULL_REFRESH_CYCLE flushes, use MODE_FAST to clear artifacts
-	else if (flush_count % FULL_REFRESH_CYCLE == 0) {
+	} else if (flush_count % FULL_REFRESH_CYCLE == 0) {
 		printf("Debug: Periodic full refresh - using MODE_FAST\n");
-		flush_mode = MODE_FAST;
 	} else {
-		// Use the primary mode for normal operation
-		flush_mode = current_mode;
 		printf("Debug: Using primary mode %d\n", flush_mode);
 	}
 
 	// Switch to the required mode if needed
 	if (flush_mode != previous_mode) {
-		printf("Debug: Switching to mode %d from %d\n", flush_mode,
-		       previous_mode);
-
-		// Initialize the new mode
-		switch (flush_mode) {
-		case MODE_NORMAL:
-			EPD_init();
-			break;
-		case MODE_4GRAY:
-			epd_w21_init_4g();
-			break;
-		case MODE_FAST:
-			EPD_init_Fast();
-			break;
-		case MODE_PARTIAL:
-			EPD_init_Part();
-			break;
-		case MODE_NONE:
-			printf("Debug: No mode set, skipping flush\n");
-			return; // Skip flush if no mode is set
-		}
-
-		previous_mode = flush_mode;
+		eink_set_mode(flush_mode);
 	}
 
 	// Display the buffer according to current mode
@@ -820,16 +793,15 @@ void eink_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 	case MODE_NORMAL:
 		pic_display(px_map, size);
 		break;
-
 	case MODE_4GRAY:
 		pic_display_4g(px_map, size);
 		break;
-
 	case MODE_FAST:
 		pic_display_fast(px_map, size);
 		break;
-
 	case MODE_PARTIAL:
+	case MODE_180:
+	case MODE_GUI:
 		pic_display_partial(area->x1, area->y1, px_map, width, height);
 		break;
 	case MODE_NONE:
