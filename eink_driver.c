@@ -312,6 +312,56 @@ void EPD_sleep(void) {
     EPD_W21_WriteDATA(0xA5);
 }
 
+// Initialize 180-degree mirror
+void EPD_Init_180(void) {
+    printf("Debug: Starting EPD_Init_180\n");
+    
+    // Reset sequence
+    gpio_write(RST_PIN, 0);
+    delay_ms(10);  // At least 10ms delay
+    gpio_write(RST_PIN, 1);
+    delay_ms(10);  // At least 10ms delay
+
+    // Set 180-degree mirror
+    EPD_W21_WriteCMD(0x00);
+    EPD_W21_WriteDATA(0x1B);
+
+    // Power on
+    EPD_W21_WriteCMD(0x04);
+    delay_ms(300);  // Vendor-specific 300ms delay
+    lcd_chkstatus();
+
+    // VCOM and data interval
+    EPD_W21_WriteCMD(0x50);
+    EPD_W21_WriteDATA(0x97);
+
+    printf("Debug: EPD_Init_180 complete\n");
+}
+
+void EPD_Init_GUI(void) {
+    printf("Debug: Starting EPD_Init_GUI\n");
+    
+    // Reset sequence
+    gpio_write(RST_PIN, 0);
+    delay_ms(10);  // At least 10ms delay
+    gpio_write(RST_PIN, 1);
+    delay_ms(10);  // At least 10ms delay
+
+    // GUI-specific setting
+    EPD_W21_WriteCMD(0x00);
+    EPD_W21_WriteDATA(0x13);
+
+    // Power on
+    EPD_W21_WriteCMD(0x04);
+    lcd_chkstatus();
+
+    // VCOM and data interval
+    EPD_W21_WriteCMD(0x50);
+    EPD_W21_WriteDATA(0x97);
+
+    printf("Debug: EPD_Init_GUI complete\n");
+}
+
 void PIC_display(const unsigned char *new_data) {
     unsigned int i;
     
