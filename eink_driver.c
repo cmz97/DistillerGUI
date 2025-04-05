@@ -730,6 +730,9 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
             case MODE_PARTIAL:
                 EPD_init_Part();
                 break;
+            case MODE_NONE:
+            	printf("Debug: No mode set, skipping flush\n");
+				return;  // Skip flush if no mode is set
         }
         
         previous_mode = flush_mode;
@@ -752,6 +755,9 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
         case MODE_PARTIAL:
             pic_display_partial(px_map, size);
             break;
+        case MODE_NONE:
+        	printf("Debug: No display mode set, skipping flush\n");
+			break;
     }
 
     lv_display_flush_ready(disp);
