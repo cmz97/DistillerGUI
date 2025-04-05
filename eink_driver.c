@@ -284,7 +284,7 @@ void EPD_init_Fast(void) {
 
     printf("Debug: Setting E5 register\n");
     EPD_W21_WriteCMD(0xE5);
-    EPD_W21_WriteDATA(0x5A);
+    EPD_W21_WriteDATA(0x5F); // vendor uses 0x5F 1.5s, 0x5A 1.2s used for 4-gray mode
     
     printf("Debug: EPD_init_Fast complete\n");
 }
