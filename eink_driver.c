@@ -254,6 +254,13 @@ void EPD_W21_WriteDATA(unsigned char data)
 	write_data(data);
 }
 
+void EPD_Update(void)
+{
+	EPD_W21_WriteCMD(0x12); // DISPLAY update
+	delay_ms(1); // The delay here is necessary, 200uS at least!!!
+	lcd_chkstatus(); // Waiting for the electronic paper IC to release the idle signal
+}
+
 // Initialize display
 void EPD_W21_Init(void)
 {
@@ -285,9 +292,9 @@ void EPD_Display(unsigned char *Image)
 			EPD_W21_WriteDATA(0x00);
 		}
 	}
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+
+	// Refresh display
+	EPD_Update();
 }
 
 void EPD_init(void)
@@ -418,10 +425,8 @@ void PIC_display(const unsigned char *new_data)
 		old_data[i] = new_data[i];
 	}
 
-	// Refresh
-	EPD_W21_WriteCMD(0x12); // DISPLAY REFRESH
-	delay_ms(1); // The delay here is necessary, 200uS at least
-	lcd_chkstatus(); // Waiting for the electronic paper IC to release the idle signal
+	// Refresh display
+	EPD_Update();
 }
 
 void PIC_display_Clear(void)
@@ -440,10 +445,8 @@ void PIC_display_Clear(void)
 		old_data[i] = 0xFF;
 	}
 
-	// Refresh
-	EPD_W21_WriteCMD(0x12); // DISPLAY REFRESH
-	delay_ms(1); // The delay here is necessary, 200uS at least
-	lcd_chkstatus(); // Waiting for the electronic paper IC to release the idle signal
+	// Refresh display
+	EPD_Update();
 }
 
 // Update pic_display_fast to remove the text file saving
@@ -472,10 +475,8 @@ void pic_display_fast(const uint8_t *data, size_t size)
 	// Cache the data
 	memcpy(old_data, data, size);
 
-	// Refresh
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+	// Refresh display
+	EPD_Update();
 
 	printf("Debug: pic_display_fast complete - Total SPI bytes sent: %zu\n",
 	       total_spi_bytes);
@@ -540,9 +541,8 @@ void pic_display_partial(uint32_t x_start, uint32_t y_start,
 
 	memcpy(old_partial_data, data, size);
 
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+	// Refresh display
+	EPD_Update();
 
 	printf("Debug: pic_display_partial complete - Total SPI bytes sent: %zu\n",
 	       total_spi_bytes);
@@ -633,9 +633,7 @@ void pic_display_4g(const uint8_t *data, size_t size)
 
 	// Refresh command
 	printf("Debug: Refreshing\n");
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+	EPD_Update();
 
 	printf("Debug: pic_display_4g complete - Total SPI bytes sent: %zu\n",
 	       total_spi_bytes);
@@ -986,9 +984,8 @@ void eink_clear(bool poweroff)
 
 	memcpy(old_data, clear_data, sizeof(clear_data));
 
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+	// Refresh display
+	EPD_Update();
 
 	if (poweroff) {
 		EPD_W21_WriteCMD(0x02);
@@ -1043,9 +1040,7 @@ void pic_display(const uint8_t *data, size_t size)
 	memcpy(old_data, data, size);
 
 	// Refresh display
-	EPD_W21_WriteCMD(0x12);
-	delay_ms(1);
-	lcd_chkstatus();
+	EPD_Update();
 
 	printf("Debug: pic_display complete - Total SPI bytes sent: %zu\n",
 	       total_spi_bytes);
