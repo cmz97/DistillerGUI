@@ -458,26 +458,57 @@ void pic_display_fast(const uint8_t* data, size_t size) {
 }
 
 // Partial mode display (1-bit)
-void pic_display_partial(const uint8_t* data, size_t size) {
+void pic_display_partial(uint32_t x_start, uint32_t y_start, const uint8_t* data, uint32_t part_width, uint32_t part_height) {
     total_spi_bytes = 0;  // Reset counter at start
-    printf("Debug: Starting pic_display_partial\n");
+    printf("Debug: Starting pic_display_partial at (%u,%u) with size %ux%u\n", x_start, y_start, part_width, part_height);
+    // Adjust x_start to be byte-aligned (multiple of 8)
+    x_start = x_start - (x_start % 8);
+    uint32_t x_end = x_start + part_width - 1;
+    uint32_t y_end = y_start + part_height - 1;
+    size_t size = (part_width * part_height) / 8;  // Bytes for the partial area
+
     if (!data || size == 0 || size > BUFFER_SIZE) {
         printf("Error: Invalid data or size\n");
         return;
     }
 
     EPD_init_Part();
-    
-    // Same as fast mode but with different initialization
-    EPD_W21_WriteCMD(0x10);
-    gpio_write(DC_PIN, 1);
-    spi_write_keep_cs(old_data, size);
 
+    // This command makes the display enter partial mode
+    EPD_W21_WriteCMD(0x91);
+
+    // Set resolution for partial update (same as vendor)
+    EPD_W21_WriteCMD(0x90);
+    EPD_W21_WriteDATA(x_start);       // x-start
+    EPD_W21_WriteDATA(x_end);         // x-end
+    EPD_W21_WriteDATA(y_start / 256); // y-start high byte
+    EPD_W21_WriteDATA(y_start % 256); // y-start low byte
+    EPD_W21_WriteDATA(y_end / 256);   // y-end high byte
+    EPD_W21_WriteDATA(y_end % 256);   // y-end low byte
+    EPD_W21_WriteDATA(0x01);          // Confirm settings
+
+    // Send old data
+    static uint8_t old_partial_data[BUFFER_SIZE];  // Persistent buffer for partial updates
+    static bool first_partial = true;
+    EPD_W21_WriteCMD(0x10);
+
+    gpio_write(DC_PIN, 1);
+    if (first_partial) {
+        // First update: send white (0xFF)
+        uint8_t white_data[size];
+        memset(white_data, 0xFF, size);
+        spi_write_keep_cs(white_data, size);
+        first_partial = false;
+    } else {
+        spi_write_keep_cs(old_partial_data, size);
+    }
+
+    // Write new data
     EPD_W21_WriteCMD(0x13);
     gpio_write(DC_PIN, 1);
     spi_write_keep_cs(data, size);
 
-    memcpy(old_data, data, size);
+    memcpy(old_partial_data, data, size);
 
     EPD_W21_WriteCMD(0x12);
     delay_ms(1);
@@ -753,7 +784,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
             break;
             
         case MODE_PARTIAL:
-            pic_display_partial(px_map, size);
+            pic_display_partial(area->x1, area->y1, px_map, width, height);
             break;
         case MODE_NONE:
         	printf("Debug: No display mode set, skipping flush\n");

@@ -40,7 +40,7 @@ void eink_cleanup(void);
 // Display functions
 void pic_display(const uint8_t* data, size_t size);
 void pic_display_fast(const uint8_t* data, size_t size);
-void pic_display_partial(const uint8_t* data, size_t size);
+void pic_display_partial(uint32_t x_start, uint32_t y_start, const uint8_t* data, uint32_t part_width, uint32_t part_height);
 void pic_display_4g(const uint8_t* data, size_t size);
 
 // E-paper initialization functions
