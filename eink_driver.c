@@ -177,6 +177,8 @@ void EPD_init(void) {
     lcd_chkstatus();
 }
 
+// COMMENTED OUT - Fast refresh no longer used, only partial refresh
+/*
 void EPD_init_Fast(void) {
     printf("Debug: EPD_init_Fast - Fast refresh initialization (adapted from Python epd_init_fast)\n");
     
@@ -206,6 +208,7 @@ void EPD_init_Fast(void) {
     epd_w21_write_cmd(0x20);
     lcd_chkstatus();
 }
+*/
 
 void EPD_init_Part(void) {
     printf("Debug: EPD_init_Part - Partial refresh initialization\n");
@@ -267,6 +270,8 @@ static void epd_update(void) {
     lcd_chkstatus();
 }
 
+// COMMENTED OUT - Fast refresh no longer used, only partial refresh
+/*
 static void epd_update_fast(void) {
     // Fast refresh update function
     epd_w21_write_cmd(0x22);  // Display Update Control
@@ -274,6 +279,7 @@ static void epd_update_fast(void) {
     epd_w21_write_cmd(0x20);  // Activate Display Update Sequence
     lcd_chkstatus();
 }
+*/
 
 static void epd_update_part(void) {
     // Partial refresh update function
@@ -298,6 +304,8 @@ void pic_display(const uint8_t* data, size_t size) {
     epd_update();
 }
 
+// COMMENTED OUT - Fast refresh no longer used, only partial refresh
+/*
 void pic_display_fast(const uint8_t* data, size_t size) {
     printf("Debug: pic_display_fast - Fast refresh with dual buffer write\n");
     if (!data || size != EPD_ARRAY) {
@@ -321,23 +329,18 @@ void pic_display_fast(const uint8_t* data, size_t size) {
 
     // Fast refresh with dual RAM write - adapted from Python EPD_Display_Fast_Dual()
     // This writes to both RAM buffers for better fast refresh performance
-    printf("0");
     epd_w21_write_cmd(0x24);  // write RAM for black(0)/white (1)
-    printf("1");
 
     for (size_t i = 0; i < size; i++) {
         epd_w21_write_data(data[i]);
     }
-     printf("2");
     epd_w21_write_cmd(0x26);  // write RAM for black(0)/white (1) - second buffer
     for (size_t i = 0; i < size; i++) {
         epd_w21_write_data(0x00);  // Fill second buffer with black/reference
     }
-    printf("3");
     epd_update_fast();
-    printf("4");
-    printf("Debug: pic_display_fast completed with dual buffer write\n");
 }
+*/
 
 void pic_display_partial(const uint8_t* data, size_t size) {
     printf("Debug: pic_display_partial - Partial refresh (like EPD_Dis_PartAll in demo)\n");
@@ -345,6 +348,11 @@ void pic_display_partial(const uint8_t* data, size_t size) {
         printf("Error: Invalid data or size in pic_display_partial\n");
         return;
     }
+
+    gpio_write(RST_PIN, 0);
+    delay_ms(10);
+    gpio_write(RST_PIN, 1);
+    delay_ms(10);
 
     // Partial refresh setup - the basemap should already be established
     // No reset needed for partial refresh - basemap is already in RAM2
@@ -632,57 +640,22 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     uint32_t copy_size = (rotated_bytes < EPD_ARRAY) ? rotated_bytes : EPD_ARRAY;
     memcpy(display_data, rotated_data, copy_size);
     
-    // Determine mode: fast for first frame and every FULL_REFRESH_INTERVAL frames, partial otherwise
-    epd_mode_t display_mode;
-    if (first_frame || (frame_counter % FULL_REFRESH_INTERVAL == 0)) {
-        display_mode = MODE_FAST;
-        printf("Debug: Using FAST mode (frame %d, first_frame=%s)\n", 
-               frame_counter, first_frame ? "true" : "false");
+    // Always use partial mode - EPD_init_Part() first, then epd_set_basemap or pic_display_partial
+    if (first_frame) {
+        // First frame: Initialize partial mode and establish basemap
+        printf("Debug: Initializing partial refresh mode for first frame\n");
+        EPD_init_Part();  // Initialize partial refresh mode
+        printf("Debug: Partial mode initialized, establishing basemap\n");
+        epd_set_basemap(display_data, EPD_ARRAY);  // Set basemap
+    } else if (frame_counter % FULL_REFRESH_INTERVAL == 0) {
+        // Reset basemap every FULL_REFRESH_INTERVAL to prevent ghosting
+        printf("Debug: Resetting basemap to prevent ghosting\n");
+        epd_set_basemap(display_data, EPD_ARRAY);
     } else {
-        display_mode = MODE_PARTIAL;
-        printf("Debug: Using PARTIAL mode (frame %d)\n", frame_counter);
+        // Use partial refresh (like EPD_Dis_PartAll in demo)
+        printf("Debug: Using partial refresh against established basemap\n");
+        pic_display_partial(display_data, EPD_ARRAY);
     }
-    
-    // Display using determined mode - using color-inverted rotated data
-    switch(display_mode) {
-        case MODE_FAST:
-            if (first_frame) {
-                // First frame: Initialize fast mode and establish basemap
-                printf("Debug: First frame - initializing fast mode\n");
-                EPD_init_Fast();  // Initialize for fast refresh
-                
-                printf("Debug: Basemap established, now displaying with fast refresh\n");
-                pic_display_fast(display_data, EPD_ARRAY);  // Then display
-            } else {
-                // Transitioning from partial to fast - reinitialize fast mode
-                printf("Debug: Transitioning from partial to fast refresh - reinitializing\n");
-                EPD_init_Fast();  // Reinitialize for fast refresh after partial mode
-                printf("Debug: Fast mode reinitialized, full refresh to clear ghosting\n");
-                pic_display_fast(display_data, EPD_ARRAY);
-            }
-            break;
-        case MODE_PARTIAL:
-            // Check if we need to initialize partial mode (transition from fast to partial)
-            if (previous_mode != MODE_PARTIAL) {
-                printf("Debug: Initializing partial refresh mode\n");
-                EPD_init_Part();  // Initialize partial refresh mode
-                printf("Debug: Fast mode initialized, establishing basemap for partial refresh\n");
-                epd_set_basemap(display_data, EPD_ARRAY);  // Set basemap first
-            }else{
-                // Use partial refresh (like EPD_Dis_PartAll in demo)
-                printf("Debug: Using partial refresh against established basemap\n");
-                pic_display_partial(display_data, EPD_ARRAY);
-            }
-           
-            break;
-        default:
-            EPD_init_Fast();  // Default to fast mode
-            pic_display_fast(display_data, EPD_ARRAY);
-            break;
-    }
-    
-    // Update previous mode for next frame
-    previous_mode = display_mode;
     
     // Update frame counter and clear first frame flag
     frame_counter++;

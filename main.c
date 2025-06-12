@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include "eink_driver.h"
 #include "font_distiller.h"
+#include "system_monitor.h"
 
 static void hal_init(void);
 static void *tick_thread(void *data);
@@ -45,6 +46,13 @@ int main(void)
     // Initialize e-ink hardware first
     eink_init();
 
+    // Initialize system monitor
+    if (!system_monitor_init()) {
+        printf("Error: Failed to initialize system monitor\n");
+        return -1;
+    }
+    printf("Debug: System monitor initialized\n");
+
     // Initialize LVGL hardware abstraction layer
     hal_init();
     
@@ -71,24 +79,46 @@ int main(void)
     lv_obj_set_style_text_color(label, lv_color_black(), LV_PART_MAIN);
     lv_obj_center(label);
     
-    // Counter from 0 to 100 with no delay
-    char counter_text[8];
-    for (int i = 0; i <= 100; i++) {
-        snprintf(counter_text, sizeof(counter_text), "%d", i);
-        lv_label_set_text(label, counter_text);
+    // System monitor display loop - update every 2 seconds
+    char monitor_text[64];
+    int update_count = 0;
+    
+    while (update_count < 50) {  // Run for about 100 seconds (50 updates × 2 seconds)
+        // Update system monitor data
+        system_monitor_update();
+        
+        // Get individual values
+        float ram_usage = system_monitor_get_ram_usage();
+        float cpu_usage = system_monitor_get_cpu_usage();
+        float temperature = system_monitor_get_temperature();
+        
+        // Format the text for display
+        snprintf(monitor_text, sizeof(monitor_text), 
+                "RAM: %.1f%%\nCPU: %.1f%%\nTEMP: %.1f°C", 
+                ram_usage, cpu_usage, temperature);
+        
+        lv_label_set_text(label, monitor_text);
         lv_obj_center(label);  // Re-center as text width may change
         
-        // Force render to display the current number
+        // Force render to display the system info
         lv_obj_invalidate(scr);
         lv_refr_now(NULL);
         lv_timer_handler();
         
-        printf("Debug: Counter displayed: %d\n", i);
+        printf("Debug: System monitor update %d - RAM: %.1f%%, CPU: %.1f%%, Temp: %.1f°C\n", 
+               update_count + 1, ram_usage, cpu_usage, temperature);
+        
+        // // Wait 2 seconds before next update
+        // sleep(1);
+        update_count++;
     }
     
-    printf("Debug: Counter finished - displayed 0 to 100\n");
+    printf("Debug: System monitor display finished - %d updates completed\n", update_count);
     
-    // Clean up e-ink display and enter deep sleep before exit
+    // Clean up system monitor and e-ink display before exit
+    printf("Debug: Cleaning up system monitor\n");
+    system_monitor_cleanup();
+    
     printf("Debug: Cleaning up e-ink display before exit\n");
     eink_cleanup();
     

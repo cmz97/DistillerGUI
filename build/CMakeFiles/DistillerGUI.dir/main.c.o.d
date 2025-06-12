@@ -490,4 +490,5 @@ CMakeFiles/DistillerGUI.dir/main.c.o: /home/distiller/DistillerGUI/main.c \
  /usr/include/aarch64-linux-gnu/bits/uintn-identity.h \
  /usr/include/alloca.h /usr/include/aarch64-linux-gnu/bits/stdlib-float.h \
  /home/distiller/DistillerGUI/eink_driver.h \
- /home/distiller/DistillerGUI/font_distiller.h
+ /home/distiller/DistillerGUI/font_distiller.h \
+ /home/distiller/DistillerGUI/system_monitor.h
