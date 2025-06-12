@@ -209,8 +209,53 @@ void EPD_init_Fast(void) {
 
 void EPD_init_Part(void) {
     printf("Debug: EPD_init_Part - Partial refresh initialization\n");
-    // For partial refresh, minimal initialization needed
-    // The Python code shows partial refresh works after setting base map
+    
+    // Module reset - adapted from Arduino code
+    gpio_write(RST_PIN, 0);  // EPD_W21_RST_0
+    delay_ms(10);  // At least 10ms delay
+    gpio_write(RST_PIN, 1);  // EPD_W21_RST_1
+    delay_ms(10);  // At least 10ms delay
+    
+    lcd_chkstatus();  // Epaper_READBUSY()
+    epd_w21_write_cmd(0x12);  // SWRESET
+    lcd_chkstatus();  // Epaper_READBUSY()
+    
+    epd_w21_write_cmd(0x01);  // Driver output control
+    epd_w21_write_data((EPD_HEIGHT-1) % 256);
+    epd_w21_write_data((EPD_HEIGHT-1) / 256);
+    epd_w21_write_data(0x00);
+
+    epd_w21_write_cmd(0x11);  // data entry mode
+    epd_w21_write_data(0x01);
+
+    epd_w21_write_cmd(0x44);  // set Ram-X address start/end position
+    epd_w21_write_data(0x00);
+    epd_w21_write_data(EPD_WIDTH/8-1);
+
+    epd_w21_write_cmd(0x45);  // set Ram-Y address start/end position
+    epd_w21_write_data((EPD_HEIGHT-1) % 256);
+    epd_w21_write_data((EPD_HEIGHT-1) / 256);
+    epd_w21_write_data(0x00);
+    epd_w21_write_data(0x00);
+
+    epd_w21_write_cmd(0x3C);  // BorderWavefrom
+    epd_w21_write_data(0x05);
+
+    epd_w21_write_cmd(0x21);  // Display update control
+    epd_w21_write_data(0x00);
+    epd_w21_write_data(0x80);
+
+    epd_w21_write_cmd(0x18);  // Read built-in temperature sensor
+    epd_w21_write_data(0x80);
+
+    epd_w21_write_cmd(0x4E);  // set RAM x address count to 0
+    epd_w21_write_data(0x00);
+    epd_w21_write_cmd(0x4F);  // set RAM y address count to 0X199
+    epd_w21_write_data((EPD_HEIGHT-1) % 256);
+    epd_w21_write_data((EPD_HEIGHT-1) / 256);
+    lcd_chkstatus();  // Epaper_READBUSY()
+    
+    printf("Debug: EPD_init_Part initialization complete\n");
 }
 
 // Update functions - Based on Python eink_dsp.py
@@ -619,12 +664,16 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
         case MODE_PARTIAL:
             // Check if we need to initialize partial mode (transition from fast to partial)
             if (previous_mode != MODE_PARTIAL) {
+                printf("Debug: Initializing partial refresh mode\n");
+                EPD_init_Part();  // Initialize partial refresh mode
                 printf("Debug: Fast mode initialized, establishing basemap for partial refresh\n");
                 epd_set_basemap(display_data, EPD_ARRAY);  // Set basemap first
+            }else{
+                // Use partial refresh (like EPD_Dis_PartAll in demo)
+                printf("Debug: Using partial refresh against established basemap\n");
+                pic_display_partial(display_data, EPD_ARRAY);
             }
-            // Use partial refresh (like EPD_Dis_PartAll in demo)
-            printf("Debug: Using partial refresh against established basemap\n");
-            pic_display_partial(display_data, EPD_ARRAY);
+           
             break;
         default:
             EPD_init_Fast();  // Default to fast mode
@@ -736,25 +785,7 @@ void eink_cleanup(void) {
     printf("Debug: eink_cleanup completed\n");
 }
 
-// Mode switching (automatic based on frame counter)
-void eink_set_mode(epd_mode_t new_mode) {
-    // Mode is now automatically determined in flush callback
-    // This function is kept for compatibility but doesn't change behavior
-    printf("Debug: Mode switching is now automatic (requested mode %d ignored)\n", new_mode);
-}
 
-// Legacy functions for compatibility
-void EPD_W21_WriteCMD(unsigned char command) {
-    epd_w21_write_cmd(command);
-}
-
-void EPD_W21_WriteDATA(unsigned char data) {
-    epd_w21_write_data(data);
-}
-
-void EPD_Display(unsigned char *Image) {
-    pic_display(Image, EPD_ARRAY);
-}
 
 // Clear screen function
 void eink_clear(bool poweroff) {
@@ -771,19 +802,7 @@ void eink_clear(bool poweroff) {
     }
 }
 
-void eink_test_white(void) {
-    printf("Debug: Testing white screen\n");
-    eink_clear(false);
-}
 
-// Placeholder functions (not needed for this driver)
-void pic_display_4g(const uint8_t* data, size_t size) {
-    printf("Debug: 4-gray mode not implemented for this display\n");
-}
-
-void epd_w21_init_4g(void) {
-    printf("Debug: 4-gray mode not implemented for this display\n");
-}
 
 // Basemap function for proper partial refresh support (like EPD_SetRAMValue_BaseMap in demo)
 void epd_set_basemap(const uint8_t* data, size_t size) {
@@ -794,7 +813,6 @@ void epd_set_basemap(const uint8_t* data, size_t size) {
     }
 
     // Set basemap in both RAM buffers - this is crucial for partial refresh
-    // Note: EPD_init_Part() is called separately when transitioning to partial mode
     // Write to RAM1 (0x24) - current image
     epd_w21_write_cmd(0x24);  // Write Black and White image to RAM
     for (size_t i = 0; i < size; i++) {

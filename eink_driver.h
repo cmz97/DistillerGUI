@@ -43,33 +43,21 @@ void eink_cleanup(void);
 void pic_display(const uint8_t* data, size_t size);
 void pic_display_fast(const uint8_t* data, size_t size);
 void pic_display_partial(const uint8_t* data, size_t size);
-void pic_display_4g(const uint8_t* data, size_t size);
 
 // Basemap function for proper partial refresh support
 void epd_set_basemap(const uint8_t* data, size_t size);
 
-// E-paper initialization functions - Updated to match Python driver
+// E-paper initialization functions
 void EPD_init(void);
 void EPD_init_Fast(void);
 void EPD_init_Part(void);
-void epd_w21_init_4g(void);
-void EPD_Display(unsigned char *Image);
 void EPD_sleep(void);
-
-// Low-level functions
-void EPD_W21_WriteCMD(unsigned char command);
-void EPD_W21_WriteDATA(unsigned char data);
-
-// Test function
-void eink_test_white(void);
+void EPD_DeepSleep(void);
 
 // LVGL integration
 void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
-void eink_set_mode(epd_mode_t mode);
 
-// Image processing functions
-void rotate_counter_clockwise(const uint8_t* src, uint8_t* dst, uint32_t width, uint32_t height);
-void flip_horizontal(uint8_t* data, uint32_t width, uint32_t height);
-void pack_pixels_to_bits(const uint8_t* src, uint8_t* dst, uint32_t width, uint32_t height);
+// Image processing functions (for debug/internal use)
+void rotate_bitpacked_ccw_90(const uint8_t* src, uint8_t* dst, uint32_t src_width, uint32_t src_height);
 
 #endif // EINK_DRIVER_H 
