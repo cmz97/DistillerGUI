@@ -1,8 +1,4 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/DistillerGUI.dir/api_client.c.o"
-  "CMakeFiles/DistillerGUI.dir/api_client.c.o.d"
-  "CMakeFiles/DistillerGUI.dir/audio.c.o"
-  "CMakeFiles/DistillerGUI.dir/audio.c.o.d"
   "CMakeFiles/DistillerGUI.dir/background.c.o"
   "CMakeFiles/DistillerGUI.dir/background.c.o.d"
   "CMakeFiles/DistillerGUI.dir/eink_driver.c.o"
@@ -15,8 +11,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/DistillerGUI.dir/main.c.o.d"
   "CMakeFiles/DistillerGUI.dir/system_monitor.c.o"
   "CMakeFiles/DistillerGUI.dir/system_monitor.c.o.d"
-  "CMakeFiles/DistillerGUI.dir/uart_input.c.o"
-  "CMakeFiles/DistillerGUI.dir/uart_input.c.o.d"
   "DistillerGUI"
   "DistillerGUI.pdb"
 )

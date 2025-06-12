@@ -142,54 +142,6 @@ DistillerGUI/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/build
 .PHONY : DistillerGUI/fast
 
-api_client.o: api_client.c.o
-.PHONY : api_client.o
-
-# target to build an object file
-api_client.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/api_client.c.o
-.PHONY : api_client.c.o
-
-api_client.i: api_client.c.i
-.PHONY : api_client.i
-
-# target to preprocess a source file
-api_client.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/api_client.c.i
-.PHONY : api_client.c.i
-
-api_client.s: api_client.c.s
-.PHONY : api_client.s
-
-# target to generate assembly for a file
-api_client.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/api_client.c.s
-.PHONY : api_client.c.s
-
-audio.o: audio.c.o
-.PHONY : audio.o
-
-# target to build an object file
-audio.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.o
-.PHONY : audio.c.o
-
-audio.i: audio.c.i
-.PHONY : audio.i
-
-# target to preprocess a source file
-audio.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.i
-.PHONY : audio.c.i
-
-audio.s: audio.c.s
-.PHONY : audio.s
-
-# target to generate assembly for a file
-audio.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/audio.c.s
-.PHONY : audio.c.s
-
 background.o: background.c.o
 .PHONY : background.o
 
@@ -9478,30 +9430,6 @@ system_monitor.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/system_monitor.c.s
 .PHONY : system_monitor.c.s
 
-uart_input.o: uart_input.c.o
-.PHONY : uart_input.o
-
-# target to build an object file
-uart_input.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.o
-.PHONY : uart_input.c.o
-
-uart_input.i: uart_input.c.i
-.PHONY : uart_input.i
-
-# target to preprocess a source file
-uart_input.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.i
-.PHONY : uart_input.c.i
-
-uart_input.s: uart_input.c.s
-.PHONY : uart_input.s
-
-# target to generate assembly for a file
-uart_input.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/DistillerGUI.dir/build.make CMakeFiles/DistillerGUI.dir/uart_input.c.s
-.PHONY : uart_input.c.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -9512,12 +9440,6 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... DistillerGUI"
 	@echo "... lvgl"
-	@echo "... api_client.o"
-	@echo "... api_client.i"
-	@echo "... api_client.s"
-	@echo "... audio.o"
-	@echo "... audio.i"
-	@echo "... audio.s"
 	@echo "... background.o"
 	@echo "... background.i"
 	@echo "... background.s"
@@ -10679,9 +10601,6 @@ help:
 	@echo "... system_monitor.o"
 	@echo "... system_monitor.i"
 	@echo "... system_monitor.s"
-	@echo "... uart_input.o"
-	@echo "... uart_input.i"
-	@echo "... uart_input.s"
 .PHONY : help
 
 

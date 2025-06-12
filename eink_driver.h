@@ -5,29 +5,31 @@
 #include <stdbool.h>
 #include "lvgl/lvgl.h"
 
-// Display dimensions
-#define EPD_WIDTH   240
-#define EPD_HEIGHT  416
+// Display dimensions - Updated to match new Python driver
+#define EPD_WIDTH   128
+#define EPD_HEIGHT  250
 
-// For 2-bit color (A2), stride needs to be aligned to 4 bytes
-#define EPD_STRIDE  ((EPD_WIDTH + 3) & ~3)  // Round up to multiple of 4
-#define DISP_BUF_SIZE (EPD_STRIDE * EPD_HEIGHT / 4)  // Each byte holds 4 pixels in A2 mode
+// Buffer size for 1-bit mode (1 bit per pixel, 8 pixels per byte)
+#define EPD_ARRAY   ((EPD_WIDTH * EPD_HEIGHT) / 8)  // 4000 bytes
+#define BUFFER_SIZE EPD_ARRAY
 
-// Original 1-bit buffer size for e-ink operations
-#define BUFFER_SIZE ((EPD_WIDTH * EPD_HEIGHT) / 8)
+// LVGL display dimensions (landscape mode for LVGL)
+#define LVGL_WIDTH  250  // LVGL width = EPD height (landscape)
+#define LVGL_HEIGHT 128  // LVGL height = EPD width (landscape)
 
-// GPIO pins
-#define DC_PIN    6  // Data/Command control
+// GPIO pins - Keep the same as specified
+#define DC_PIN    7  // Data/Command control
 #define RST_PIN   13 // Reset
 #define BUSY_PIN  9  // Busy status
 #define CS_PIN    8  // Chip select
 
+// Full refresh interval - partial mode used everywhere except first frame and every Nth frame
+#define FULL_REFRESH_INTERVAL 20
+
 // Display refresh modes
 typedef enum {
     MODE_NONE,   // Initial state
-    MODE_NORMAL, // Normal mode (EPD_Display)
-    MODE_4GRAY,  // 4 gray levels
-    MODE_FAST,   // Fast update
+    MODE_FAST,   // Fast update (full refresh)
     MODE_PARTIAL // Partial update
 } epd_mode_t;
 
@@ -43,7 +45,10 @@ void pic_display_fast(const uint8_t* data, size_t size);
 void pic_display_partial(const uint8_t* data, size_t size);
 void pic_display_4g(const uint8_t* data, size_t size);
 
-// E-paper initialization functions
+// Basemap function for proper partial refresh support
+void epd_set_basemap(const uint8_t* data, size_t size);
+
+// E-paper initialization functions - Updated to match Python driver
 void EPD_init(void);
 void EPD_init_Fast(void);
 void EPD_init_Part(void);
@@ -61,5 +66,10 @@ void eink_test_white(void);
 // LVGL integration
 void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
 void eink_set_mode(epd_mode_t mode);
+
+// Image processing functions
+void rotate_counter_clockwise(const uint8_t* src, uint8_t* dst, uint32_t width, uint32_t height);
+void flip_horizontal(uint8_t* data, uint32_t width, uint32_t height);
+void pack_pixels_to_bits(const uint8_t* src, uint8_t* dst, uint32_t width, uint32_t height);
 
 #endif // EINK_DRIVER_H 

@@ -1,420 +1,317 @@
+import machine
+import utime
+#TODO unblock the eink await 
 
-import time
-import spidev
-import platform
-import uuid
-from typing import List
+class einkDSP_SAM:
 
-_ROCK = 'rockchip' in platform.release()
-
-if not _ROCK:
-    import RPi.GPIO as GPIO
-else:
-    from gpiod.line import Direction, Value, Bias
-    from .rock_gpio import RockGPIO
-
-
-class EinkDSP:
     def __init__(self) -> None:
+        self.oldData = 0x00
 
-        self.LUT_ALL: List[int] = [
-            0x01,	0x05,	0x20,	0x19,	0x0A,	0x01,	0x01,
-            0x05,	0x0A,	0x01,	0x0A,	0x01,	0x01,	0x01,
-            0x05,	0x09,	0x02,	0x03,	0x04,	0x01,	0x01,
-            0x01,	0x04,	0x04,	0x02,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x05,	0x20,	0x19,	0x0A,	0x01,	0x01,
-            0x05,	0x4A,	0x01,	0x8A,	0x01,	0x01,	0x01,
-            0x05,	0x49,	0x02,	0x83,	0x84,	0x01,	0x01,
-            0x01,	0x84,	0x84,	0x82,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x05,	0x20,	0x99,	0x8A,	0x01,	0x01,
-            0x05,	0x4A,	0x01,	0x8A,	0x01,	0x01,	0x01,
-            0x05,	0x49,	0x82,	0x03,	0x04,	0x01,	0x01,
-            0x01,	0x04,	0x04,	0x02,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x85,	0x20,	0x99,	0x0A,	0x01,	0x01,
-            0x05,	0x4A,	0x01,	0x8A,	0x01,	0x01,	0x01,
-            0x05,	0x49,	0x02,	0x83,	0x04,	0x01,	0x01,
-            0x01,	0x04,	0x04,	0x02,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x85,	0xA0,	0x99,	0x0A,	0x01,	0x01,
-            0x05,	0x4A,	0x01,	0x8A,	0x01,	0x01,	0x01,
-            0x05,	0x49,	0x02,	0x43,	0x04,	0x01,	0x01,
-            0x01,	0x04,	0x04,	0x42,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x01,	0x00,	0x00,	0x00,	0x00,	0x01,	0x01,
-            0x09,	0x10,	0x3F,	0x3F,	0x00,	0x0B,
-        ]
-        self.emptyImage: List[int] = [0xFF] * 24960
-        self.oldData: List[int] = [0] * 12480
+        # Pin Definition
+        self.DC_PIN = machine.Pin(12, machine.Pin.OUT)
+        self.RST_PIN = machine.Pin(11, machine.Pin.OUT)
+        self.BUSY_PIN = machine.Pin(10, machine.Pin.IN, machine.Pin.PULL_UP)
 
-        # Pin Def
+        # Updated dimensions to match Display_EPD_W21
+        self.EPD_WIDTH = 128
+        self.EPD_HEIGHT = 250
+        self.EPD_ARRAY = self.EPD_WIDTH * self.EPD_HEIGHT // 8
+    
+        # Initialize SPI
+        self.spi = machine.SPI(1,baudrate=25000000,sck=machine.Pin(14, machine.Pin.OUT), mosi=machine.Pin(15, machine.Pin.OUT), miso=machine.Pin(8, machine.Pin.OUT))
+        self.cs = machine.Pin(13, mode=machine.Pin.OUT, value=1)
+        self.init = True
+        self.watchdogCounter = 0
+        
+        # Remove old LUT tables as Display_EPD_W21 doesn't use them
+    
+    def de_init(self):
+        self.spi.deinit()
+        self.DC_PIN = machine.Pin(12, machine.Pin.IN, None)
+        self.RST_PIN = machine.Pin(11, machine.Pin.IN, None)
+        self.BUSY_PIN = machine.Pin(10, machine.Pin.IN, None)
+        self.cs = machine.Pin(13, machine.Pin.IN, None)
+        machine.Pin(14, machine.Pin.IN, None)
+        machine.Pin(15, machine.Pin.IN, None)
+        machine.Pin(8, machine.Pin.IN, None)
+        self.init = False
+            
+    def re_init(self):
+        self.DC_PIN = machine.Pin(12, machine.Pin.OUT)
+        self.RST_PIN = machine.Pin(11, machine.Pin.OUT)
+        self.BUSY_PIN = machine.Pin(10, machine.Pin.IN, machine.Pin.PULL_UP)
 
-        if _ROCK:
-            self.RK_DC_PIN = "GPIO1_C6"
-            self.RK_RST_PIN = "GPIO1_B1"
-            self.RK_BUSY_PIN = "GPIO0_D3"
-        else:
-            self.DC_PIN = 6
-            self.RST_PIN = 13
-            self.BUSY_PIN = 9
+        self.spi = machine.SPI(1,baudrate=25000000,sck=machine.Pin(14, machine.Pin.OUT), mosi=machine.Pin(15, machine.Pin.OUT), miso=machine.Pin(8, machine.Pin.OUT))
+        self.cs = machine.Pin(13, mode=machine.Pin.OUT, value=1) 
+        self.init = True
+        
+    def SPI_Delay(self):
+        utime.sleep_us(10)  # 10 microseconds
 
-        self.EPD_WIDTH = 240
-        self.EPD_HEIGHT = 416
+    def SPI_Write(self, value):
+        self.cs.low()
+        self.spi.write(bytearray([value]))
+        self.cs.high()
 
-        if _ROCK:
-            self.RockGPIO = RockGPIO()
-        else:
-            self.GPIO = GPIO
-
-        self.spi = self.EPD_GPIO_Init()
-        self.epd_w21_init_4g()
-
-    def cleanup(self) -> None:
-        if _ROCK:
-            self.RockGPIO.cleanup()
-
-    def EPD_GPIO_Init(self) -> spidev.SpiDev:
-        if not _ROCK:
-            self.GPIO.setwarnings(False)
-            self.GPIO.setmode(GPIO.BCM)
-            self.GPIO.setup(self.DC_PIN, GPIO.OUT)
-            self.GPIO.setup(self.RST_PIN, GPIO.OUT)
-            self.GPIO.setup(self.BUSY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        else:
-            self.RockGPIO.setup(self.RK_DC_PIN, Direction.OUTPUT)
-            self.RockGPIO.setup(self.RK_RST_PIN, Direction.OUTPUT)
-            self.RockGPIO.setup(
-                self.RK_BUSY_PIN, Direction.INPUT, bias=Bias.PULL_UP)
-
-        bus = 0
-        device = 0
-        spi = spidev.SpiDev()
-        spi.open(bus, device)
-        spi.max_speed_hz = 30000000
-        spi.mode = 0
-        return spi
-
-    def SPI_Delay(self) -> None:
-        """ Delay for SPI communication, used to tune frequency """
-        time.sleep(0.000001)
-
-    def SPI_Write(self, value: int) -> List[int]:
-        return self.spi.xfer2([value])
-
-    def epd_w21_write_cmd(self, command: int) -> None:
+    def epd_w21_write_cmd(self, command):
         self.SPI_Delay()
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.INACTIVE)  # Data mode
-        else:
-            self.GPIO.output(self.DC_PIN, GPIO.LOW)
+        self.DC_PIN.low()
         self.SPI_Write(command)
 
-    def epd_w21_write_data(self, data: int) -> None:
+    def epd_w21_write_data(self, data):
         self.SPI_Delay()
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)  # Data mode
-        else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)
+        self.DC_PIN.high()
         self.SPI_Write(data)
 
-    def delay_xms(self, xms: int) -> None:
-        time.sleep(xms / 1000.0)
+    def delay_xms(self, xms):
+        utime.sleep_us(xms*1000)
 
-    def epd_w21_init(self) -> None:
-        self.delay_xms(100)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_RST_PIN, Value.INACTIVE)
-            self.delay_xms(20)
-            self.RockGPIO.output(self.RK_RST_PIN, Value.ACTIVE)
-            self.delay_xms(20)
-        else:
-            self.GPIO.output(self.RST_PIN, False)
-            self.delay_xms(20)
-            self.GPIO.output(self.RST_PIN, True)
-            self.delay_xms(20)
+    def lcd_chkstatus(self):
+        # Busy function - adapted from Epaper_READBUSY()
+        while self.BUSY_PIN.value() == 1 and self.watchdogCounter < 1000:  # =1 BUSY
+            self.delay_xms(10)
+            self.watchdogCounter += 1
+        print(f"counter: {self.watchdogCounter}")
+        self.watchdogCounter = 0
 
-    def EPD_Display(self, image: List[int]) -> None:
-        width = (self.EPD_WIDTH + 7) // 8
-        height = self.EPD_HEIGHT
-
-        self.epd_w21_write_cmd(0x10)
-        for j in range(height):
-            for i in range(width):
-                self.epd_w21_write_data(image[i + j * width])
-
-        self.epd_w21_write_cmd(0x13)
-        for _ in range(height * width):
-            self.epd_w21_write_data(0x00)
-
-        self.epd_w21_write_cmd(0x12)
-        self.delay_xms(1)  # Necessary delay
+    # Full screen refresh initialization - adapted from EPD_HW_Init()
+    def epd_init(self):
+        # Module reset
+        self.RST_PIN.low()
+        self.delay_xms(10)  # At least 10ms delay
+        self.RST_PIN.high()
+        self.delay_xms(10)  # At least 10ms delay
+        
         self.lcd_chkstatus()
-
-    def lcd_chkstatus(self) -> None:
-        if _ROCK:
-            # Assuming LOW means busy
-            while self.RockGPIO.input(self.RK_BUSY_PIN) == Value.INACTIVE:
-                time.sleep(0.01)
-        else:
-            while self.GPIO.input(self.BUSY_PIN) == GPIO.LOW:  # Assuming LOW means busy
-                time.sleep(0.01)  # Wait 10ms before checking again
-
-    def epd_sleep(self) -> None:
-        self.epd_w21_write_cmd(0x02)  # Power off
-        self.lcd_chkstatus()  # Implement this to check the display's busy status
-
-        self.epd_w21_write_cmd(0x07)  # Deep sleep
-        self.epd_w21_write_data(0xA5)
-
-    def epd_init(self) -> None:
-        self.epd_w21_init()  # Reset the e-paper display
-
-        self.epd_w21_write_cmd(0x04)  # Power on
-        self.lcd_chkstatus()  # Implement this to check the display's busy status
-
-        self.epd_w21_write_cmd(0x50)  # VCOM and data interval setting
-        self.epd_w21_write_data(0x97)  # Settings for your display
-
-    def epd_init_fast(self) -> None:
-        self.epd_w21_init()  # Reset the e-paper display
-
-        self.epd_w21_write_cmd(0x04)  # Power on
-        self.lcd_chkstatus()  # Implement this to check the display's busy status
-
-        self.epd_w21_write_cmd(0xE0)
-        self.epd_w21_write_data(0x02)
-
-        self.epd_w21_write_cmd(0xE5)
-        self.epd_w21_write_data(0x5A)
-
-    def epd_init_part(self) -> None:
-        self.epd_w21_init()  # Reset the e-paper display
-
-        self.epd_w21_write_cmd(0x04)  # Power on
-        self.lcd_chkstatus()  # Implement this to check the display's busy status
-
-        self.epd_w21_write_cmd(0xE0)
-        self.epd_w21_write_data(0x02)
-
-        self.epd_w21_write_cmd(0xE5)
-        self.epd_w21_write_data(0x6E)
-
-        self.epd_w21_write_cmd(0x50)
-        self.epd_w21_write_data(0xD7)
-
-    def power_off(self) -> None:
-        self.epd_w21_write_cmd(0x02)
+        self.epd_w21_write_cmd(0x12)  # SWRESET
         self.lcd_chkstatus()
-
-    def write_full_lut(self) -> None:
-        self.epd_w21_write_cmd(0x20)  # Write VCOM register
-        for i in range(42):
-            self.epd_w21_write_data(self.LUT_ALL[i])
-
-        self.epd_w21_write_cmd(0x21)  # Write LUTWW register
-        for i in range(42, 84):
-            self.epd_w21_write_data(self.LUT_ALL[i])
-
-        self.epd_w21_write_cmd(0x22)  # Write LUTR register
-        for i in range(84, 126):
-            self.epd_w21_write_data(self.LUT_ALL[i])
-
-        self.epd_w21_write_cmd(0x23)  # Write LUTW register
-        for i in range(126, 168):
-            self.epd_w21_write_data(self.LUT_ALL[i])
-
-        self.epd_w21_write_cmd(0x24)  # Write LUTB register
-        for i in range(168, 210):
-            self.epd_w21_write_data(self.LUT_ALL[i])
-
-    def epd_w21_init_4g(self) -> None:
-        self.epd_w21_init()  # Reset the e-paper display
-
-        # Panel Setting
-        self.epd_w21_write_cmd(0x00)
-        self.epd_w21_write_data(0xFF)  # LUT from MCU
-        self.epd_w21_write_data(0x0D)
-
-        # Power Setting
-        self.epd_w21_write_cmd(0x01)
-        self.epd_w21_write_data(0x03)  # Enable internal VSH, VSL, VGH, VGL
-        self.epd_w21_write_data(self.LUT_ALL[211])  # VGH=20V, VGL=-20V
-        self.epd_w21_write_data(self.LUT_ALL[212])  # VSH=15V
-        self.epd_w21_write_data(self.LUT_ALL[213])  # VSL=-15V
-        self.epd_w21_write_data(self.LUT_ALL[214])  # VSHR
-
-        # Booster Soft Start
-        self.epd_w21_write_cmd(0x06)
-        self.epd_w21_write_data(0xD7)  # D7
-        self.epd_w21_write_data(0xD7)  # D7
-        self.epd_w21_write_data(0x27)  # 2F
-
-        # PLL Control - Frame Rate
-        self.epd_w21_write_cmd(0x30)
-        self.epd_w21_write_data(self.LUT_ALL[210])  # PLL
-
-        # CDI Setting
-        self.epd_w21_write_cmd(0x50)
-        self.epd_w21_write_data(0x57)
-
-        # TCON Setting
-        self.epd_w21_write_cmd(0x60)
-        self.epd_w21_write_data(0x22)
-
-        # Resolution Setting
-        self.epd_w21_write_cmd(0x61)
-        self.epd_w21_write_data(0xF0)  # HRES[7:3] - 240
-        self.epd_w21_write_data(0x01)  # VRES[15:8] - 320
-        self.epd_w21_write_data(0xA0)  # VRES[7:0]
-
-        self.epd_w21_write_cmd(0x65)
-        # Additional resolution setting, if needed
+        
+        self.epd_w21_write_cmd(0x01)  # Driver output control
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) % 256)
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) // 256)
         self.epd_w21_write_data(0x00)
 
-        # VCOM_DC Setting
-        self.epd_w21_write_cmd(0x82)
-        self.epd_w21_write_data(self.LUT_ALL[215])  # -2.0V
+        self.epd_w21_write_cmd(0x11)  # data entry mode
+        self.epd_w21_write_data(0x01)  # Normal mode
 
-        # Power Saving Register
-        self.epd_w21_write_cmd(0xE3)
-        self.epd_w21_write_data(0x88)  # VCOM_W[3:0], SD_W[3:0]
+        self.epd_w21_write_cmd(0x44)  # set Ram-X address start/end position
+        self.epd_w21_write_data(0x00)                 # Start first
+        self.epd_w21_write_data(self.EPD_WIDTH//8-1)  # End second
 
-        # LUT Setting
-        self.write_full_lut()
+        self.epd_w21_write_cmd(0x45)  # set Ram-Y address start/end position
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) % 256)  # Start with height-1
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) // 256)
+        self.epd_w21_write_data(0x00)                       # End with 0
+        self.epd_w21_write_data(0x00)
 
-        # Power ON
-        self.epd_w21_write_cmd(0x04)
-        self.lcd_chkstatus()  # Check if the display is ready
+        self.epd_w21_write_cmd(0x3C)  # BorderWavefrom
+        self.epd_w21_write_data(0x05)
 
-    def pic_display_4g(self, datas: List[int]) -> None:
-        # Command to start transmitting old data
-        buffer = []
-        self.epd_w21_write_cmd(0x10)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
+        self.epd_w21_write_cmd(0x21)  # Display update control
+        self.epd_w21_write_data(0x00)
+        self.epd_w21_write_data(0x80)  # Normal mode
+
+        self.epd_w21_write_cmd(0x18)  # Read built-in temperature sensor
+        self.epd_w21_write_data(0x80)
+
+        self.epd_w21_write_cmd(0x4E)  # set RAM x address count
+        self.epd_w21_write_data(0x00)  # Start at 0
+            
+        self.epd_w21_write_cmd(0x4F)  # set RAM y address count
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) % 256)  # Start at height-1
+        self.epd_w21_write_data((self.EPD_HEIGHT-1) // 256)
+        self.lcd_chkstatus()
+
+    # Fast refresh initialization - adapted from EPD_HW_Init_Fast2() (renamed from Fast2 as it's faster)
+    def epd_init_fast(self):
+        # Module reset
+        self.RST_PIN.low()
+        self.delay_xms(10)  # At least 10ms delay
+        self.RST_PIN.high()
+        self.delay_xms(10)  # At least 10ms delay
+        
+        self.epd_w21_write_cmd(0x12)  # SWRESET
+        self.lcd_chkstatus()
+        
+        self.epd_w21_write_cmd(0x18)  # Read built-in temperature sensor
+        self.epd_w21_write_data(0x80)
+        
+        self.epd_w21_write_cmd(0x22)  # Load temperature value
+        self.epd_w21_write_data(0xB1)
+        self.epd_w21_write_cmd(0x20)
+        self.lcd_chkstatus()
+
+        self.epd_w21_write_cmd(0x1A)  # Write to temperature register
+        self.epd_w21_write_data(0x5A)  # Fast2 value (0x5A vs 0x64 in original fast)
+        self.epd_w21_write_data(0x00)
+        
+        self.epd_w21_write_cmd(0x22)  # Load temperature value
+        self.epd_w21_write_data(0x91)
+        self.epd_w21_write_cmd(0x20)
+        self.lcd_chkstatus()
+
+
+
+    # Update functions - adapted from Arduino version
+    def epd_update(self):
+        # Full screen refresh update function
+        self.epd_w21_write_cmd(0x22)  # Display Update Control
+        self.epd_w21_write_data(0xF7)
+        self.epd_w21_write_cmd(0x20)  # Activate Display Update Sequence
+        self.lcd_chkstatus()
+
+    def epd_update_fast(self):
+        # Fast refresh 1 update function
+        self.epd_w21_write_cmd(0x22)  # Display Update Control
+        self.epd_w21_write_data(0xC7)
+        self.epd_w21_write_cmd(0x20)  # Activate Display Update Sequence
+        self.lcd_chkstatus()
+
+    def epd_update_part(self):
+        # Partial refresh update function
+        self.epd_w21_write_cmd(0x22)  # Display Update Control
+        self.epd_w21_write_data(0xFF)
+        self.epd_w21_write_cmd(0x20)  # Activate Display Update Sequence
+        self.lcd_chkstatus()
+
+    # Clear screen functions - adapted from Arduino version
+    def epd_clear_white(self):
+        # Clear screen display - white
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(0xFF)
+        self.epd_update()
+
+    def epd_clear_black(self):
+        # Display all black
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(0x00)
+        self.epd_update()
+
+    # Display functions adapted from Arduino version
+    def EPD_Display(self, image):
+        # Full screen refresh display function - adapted from EPD_WhiteScreen_ALL()
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(image[i])
+        self.epd_update()
+
+    def EPD_Display_Fast(self, image):
+        # Fast refresh display function - adapted from EPD_WhiteScreen_ALL_Fast()
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(image[i])
+        self.epd_update_fast()
+
+    def EPD_Display_Fast_Dual(self, image):
+        # Fast refresh with dual RAM write - adapted from EPD_WhiteScreen_ALL_Fast2()
+        # This writes to both RAM buffers for better fast refresh performance
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(image[i])
+        
+        self.epd_w21_write_cmd(0x26)  # write RAM for black(0)/white (1)
+        for i in range(self.EPD_ARRAY):
+            self.epd_w21_write_data(0x00)
+        
+        self.epd_update_fast()
+
+    # Partial refresh functions - adapted from Arduino version
+    def epd_set_basemap(self, image_data):
+        # Partial refresh of background display - adapted from EPD_SetRAMValue_BaseMap()
+        self.epd_w21_write_cmd(0x24)  # Write Black and White image to RAM
+        if isinstance(image_data, bytes):
+            for byte in image_data:
+                self.epd_w21_write_data(byte)
         else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
-
-        print("Start Old Data Transmission")
-        # Iterate over each byte of the image data
-        for i in range(12480):  # Assuming 416x240 resolution, adjust accordingly
-            temp3 = 0
-            for j in range(2):  # For each half-byte in the data
-                temp1 = datas[i * 2 + j]
-                for k in range(4):  # For each bit in the half-byte
-                    temp2 = temp1 & 0xC0
-                    if temp2 == 0xC0:
-                        temp3 |= 0x01  # White
-                    elif temp2 == 0x00:
-                        temp3 |= 0x00  # Black
-                    elif temp2 == 0x80:
-                        temp3 |= 0x01  # Gray1
-                    elif temp2 == 0x40:
-                        temp3 |= 0x00  # Gray2
-
-                    if j == 0:
-                        temp1 <<= 2
-                        temp3 <<= 1
-                    if j == 1 and k != 3:
-                        temp1 <<= 2
-                        temp3 <<= 1
-            buffer.append(temp3)
-        self.spi.xfer3(buffer, self.spi.max_speed_hz, 1, 8)
-
-        buffer = []
-        print("Start New Data Transmission")
-        # Command to start transmitting new data
-        self.epd_w21_write_cmd(0x13)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
+            for i in range(min(len(image_data), self.EPD_ARRAY)):
+                self.epd_w21_write_data(image_data[i])
+        
+        self.epd_w21_write_cmd(0x26)  # Write Black and White image to RAM
+        if isinstance(image_data, bytes):
+            for byte in image_data:
+                self.epd_w21_write_data(byte)
         else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
+            for i in range(min(len(image_data), self.EPD_ARRAY)):
+                self.epd_w21_write_data(image_data[i])
+        
+        self.epd_update()
 
-        for i in range(12480):  # Repeat the process for new data
-            temp3 = 0
-            for j in range(2):
-                temp1 = datas[i * 2 + j]
-                for k in range(4):
-                    temp2 = temp1 & 0xC0
-                    # The logic for determining color values remains the same
-                    if temp2 == 0xC0:
-                        temp3 |= 0x01  # White
-                    elif temp2 == 0x00:
-                        temp3 |= 0x00  # Black
-                    elif temp2 == 0x80:
-                        temp3 |= 0x00  # Gray1
-                    elif temp2 == 0x40:
-                        temp3 |= 0x01  # Gray2
+    def epd_display_part_all(self, image_data):
+        # Full screen partial refresh display - adapted from EPD_Dis_PartAll()
+        # Module reset
+        self.RST_PIN.low()
+        self.delay_xms(10)
+        self.RST_PIN.high()
+        self.delay_xms(10)
+        
+        self.epd_w21_write_cmd(0x3C)  # BorderWavefrom
+        self.epd_w21_write_data(0x80)
 
-                    if j == 0:
-                        temp1 <<= 2
-                        temp3 <<= 1
-                    if j == 1 and k != 3:
-                        temp1 <<= 2
-                        temp3 <<= 1
-            buffer.append(temp3)
-
-        self.spi.xfer3(buffer, self.spi.max_speed_hz, 1, 8)
-
-        # Refresh command
-        print("Refreshing")
-        self.epd_w21_write_cmd(0x12)
-        self.delay_xms(1)  # Necessary delay for the display refresh
-        self.lcd_chkstatus()  # Check the display status
-
-    def pic_display(self, new_data: List[int]) -> None:
-        # Assuming oldData is globally defined or accessible
-
-        # Transfer old data
-        self.epd_w21_write_cmd(0x10)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
+        self.epd_w21_write_cmd(0x24)  # Write Black and White image to RAM
+        if isinstance(image_data, bytes):
+            for byte in image_data:
+                self.epd_w21_write_data(byte)
         else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
-        self.spi.xfer3(self.oldData, self.spi.max_speed_hz, 1, 8)
+            for i in range(min(len(image_data), self.EPD_ARRAY)):
+                self.epd_w21_write_data(image_data[i])
+        
+        self.epd_update_part()
 
-        # Transfer new data
-        self.epd_w21_write_cmd(0x13)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
+    # Deep sleep function - adapted from EPD_DeepSleep()
+    def epd_sleep(self):
+        self.epd_w21_write_cmd(0x10)  # Enter deep sleep
+        self.epd_w21_write_data(0x01)
+        self.delay_xms(100)
+
+    # Partial refresh initialization for animation sequences
+    def epd_init_part(self):
+        # For partial refresh, we don't need full re-initialization
+        # Just ensure the display is ready for partial updates
+        # The Arduino code shows partial refresh works after setting base map
+        pass
+
+    def power_off(self):
+        # Power off - use deep sleep
+        self.epd_sleep()
+
+    def PIC_display(self, old_file_path, file_path):
+        # Updated to use new Display_EPD_W21 style commands
+        self.epd_w21_write_cmd(0x24)  # write RAM for black(0)/white (1)
+        
+        if file_path is not None:
+            with open(file_path, 'rb') as file:
+                byte = file.read(1)
+                while byte:
+                    self.epd_w21_write_data(ord(byte))
+                    byte = file.read(1)
         else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
-        self.spi.xfer3(new_data, self.spi.max_speed_hz, 1, 8)
-        self.oldData = new_data.copy()
+            for _ in range(self.EPD_ARRAY):
+                self.epd_w21_write_data(0xFF)
 
-        # Refresh display
-        self.epd_w21_write_cmd(0x12)
-        self.delay_xms(1)  # Necessary delay for the display refresh
-        self.lcd_chkstatus()  # Check if the display is ready
+        self.epd_update()
 
-    def pic_display_clear(self, poweroff: bool = False) -> None:
-        # Transfer old data
-        self.epd_w21_write_cmd(0x10)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
-        else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
-        self.spi.xfer3(self.oldData, self.spi.max_speed_hz, 1, 8)
+    def PIC_clear(self):
+        # Clear screen - use white clear
+        self.epd_clear_white()
+    
 
-        # Transfer new data, setting all to 0xFF (white or clear)
-        self.epd_w21_write_cmd(0x13)
-        if _ROCK:
-            self.RockGPIO.output(self.RK_DC_PIN, Value.ACTIVE)
-        else:
-            self.GPIO.output(self.DC_PIN, GPIO.HIGH)  # Data mode
-        self.spi.xfer3([0] * 12480, self.spi.max_speed_hz, 1, 8)
-        self.oldData = [0] * 12480
 
-        # Refresh the display
-        self.epd_w21_write_cmd(0x12)
-        self.delay_xms(1)  # Ensure a small delay for the display to process
-        self.lcd_chkstatus()  # Check the display status
+# einkMux = machine.Pin(22, machine.Pin.OUT)
+# einkStatus = machine.Pin(9, machine.Pin.OUT)
+# einkMux.high()  # inverted logic
+# einkStatus.high() # provide power to eink
 
-        if poweroff:
-            self.power_off()  # Optionally power off the display after clearing
+# eink = einkDSP_SAM()
+# # eink.epd_init()
+# eink.epd_init_fast()
+# eink.PIC_display(None, './loading1.bin')
+
+# for i in range(1, 3):
+#     eink.epd_init_part()
+#     eink.PIC_display('./loading1.bin', './loading2.bin')
+#     eink.epd_init_part()
+#     eink.PIC_display('./loading2.bin', './loading1.bin')
+
+# eink.PIC_display('./loading1.bin', './loading2.bin')

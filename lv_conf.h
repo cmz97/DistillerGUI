@@ -7,7 +7,7 @@
 
 /* Core features */
 #define LV_USE_DRAW_SW 1
-#define LV_USE_DRAW_SW_GRADIENT 1
+#define LV_USE_DRAW_SW_GRADIENT 0
 
 /* Display driver features */
 #define LV_USE_DRAW_BUF 1
@@ -33,7 +33,7 @@
 #define LV_MEM_CUSTOM_FREE    free
 
 /* Color settings */
-#define LV_COLOR_DEPTH     1
+#define LV_COLOR_DEPTH     16
 #define LV_COLOR_16_SWAP   0
 #define LV_COLOR_SCREEN_TRANSP    0
 
@@ -49,6 +49,17 @@
 #define LV_FONT_ANTIALIAS 0  // Disable anti-aliasing for sharp edges
 #define LV_FONT_SUBPX 0      // Disable subpixel rendering
 #define LV_FONT_SUBPX_BGR 0  // RGB/BGR order
+
+/* Drawing settings - Enable RGB565 for proper text rendering */
+#define LV_DRAW_SW_SUPPORT_ARGB8888 0    // Disable alpha blending for performance
+#define LV_DRAW_SW_SUPPORT_RGB888   0    // Disable RGB888 support
+#define LV_DRAW_SW_SUPPORT_RGB565   1    // Enable RGB565 support  
+#define LV_DRAW_SW_SUPPORT_L8       0    // Disable L8 support
+#define LV_DRAW_SW_SUPPORT_I1       0    // Disable I1 support (convert in driver)
+#define LV_DRAW_SW_DITHER_NONE      1    // Disable dithering for sharp edges
+
+/* Gradient and blending settings */
+#define LV_COLOR_MIX_ROUND_OFS  0        // No color mixing
 
 /* Font default settings */
 #define LV_FONT_DEFAULT &lv_font_montserrat_12

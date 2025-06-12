@@ -131,46 +131,4 @@ CMakeFiles/lvgl.dir/lvgl/src/draw/sw/blend/lv_draw_sw_blend_to_l8.c.o: \
  /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../blend/../../../misc/lv_types.h \
  /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../blend/../../../misc/lv_color.h \
  /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../blend/../../../misc/lv_area.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../blend/../../../misc/lv_style.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/lv_draw_sw_blend_private.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/lv_draw_sw_blend.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../misc/lv_math.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../display/lv_display.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_refr.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../lv_conf_internal.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_types.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_style.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_area.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_color.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_assert.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_tree.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_anim.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../display/lv_display.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_pos.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_scroll.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_style.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_bidi.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_style_gen.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../core/lv_obj_style.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_draw.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../draw/lv_draw_rect.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../draw/lv_draw_label.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../draw/lv_draw_image.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../draw/lv_draw_line.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../draw/lv_draw_arc.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_class.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_property.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_obj_event.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../misc/lv_event.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/lv_indev.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../core/lv_group.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../core/../lv_conf_internal.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../core/../misc/lv_types.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../core/../misc/lv_ll.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../misc/lv_area.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../misc/lv_timer.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/../indev/../misc/lv_event.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../core/lv_group.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../misc/lv_color.h \
- /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../../../stdlib/lv_string.h
+ /home/distiller/DistillerGUI/lvgl/src/draw/sw/blend/../blend/../../../misc/lv_style.h
