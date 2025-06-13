@@ -9,6 +9,7 @@
 #include "eink_driver.h"
 #include "font_distiller.h"
 #include "system_monitor.h"
+#include "dashboard_ui.h"
 
 static void hal_init(void);
 static void *tick_thread(void *data);
@@ -58,7 +59,7 @@ int main(void)
     // Initialize LVGL hardware abstraction layer
     hal_init();
     
-    printf("Debug: Creating simple WHITE background with BLACK text\n");
+    printf("Debug: Creating Dashboard UI\n");
     
     // Clear screen first and FORCE white background
     lv_obj_clean(lv_scr_act());
@@ -68,21 +69,17 @@ int main(void)
     lv_obj_set_style_bg_color(scr, lv_color_white(), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
     
-    // FORCE refresh to apply white background BEFORE adding text
+    // Create the game console UI using the new dashboard UI module
+    dashboard_ui_elements_t *ui_elements = dashboard_ui_create_styled(scr, DASHBOARD_STYLE_4);
+    
+    // FORCE refresh to apply UI
     lv_obj_invalidate(scr);
     lv_refr_now(NULL);
     lv_timer_handler();
     
-    printf("Debug: Applied WHITE background\n");
-    
-    // Create counter label in the center with BLACK color
-    lv_obj_t * label = lv_label_create(scr);
-    lv_obj_set_style_text_font(label, &font_distiller, LV_PART_MAIN);
-    lv_obj_set_style_text_color(label, lv_color_black(), LV_PART_MAIN);
-    lv_obj_center(label);
+    printf("Debug: Dashboard UI created\n");
     
     // System monitor display loop - update every 2 seconds
-    char monitor_text[64];
     int update_count = 0;
     
     while (update_count < 50) {  // Run for about 100 seconds (50 updates × 2 seconds)
@@ -94,15 +91,10 @@ int main(void)
         float cpu_usage = system_monitor_get_cpu_usage();
         float temperature = system_monitor_get_temperature();
         
-        // Format the text for display
-        snprintf(monitor_text, sizeof(monitor_text), 
-                "RAM: %.1f%%\nCPU: %.1f%%\nTEMP: %.1f°C", 
-                ram_usage, cpu_usage, temperature);
+        // Update UI using the new dashboard UI module
+        dashboard_ui_update_values(ui_elements, temperature, cpu_usage, ram_usage);
         
-        lv_label_set_text(label, monitor_text);
-        lv_obj_center(label);  // Re-center as text width may change
-        
-        // Force render to display the system info
+        // Force render to display the updated system info
         lv_obj_invalidate(scr);
         lv_refr_now(NULL);
         lv_timer_handler();
@@ -110,8 +102,8 @@ int main(void)
         printf("Debug: System monitor update %d - RAM: %.1f%%, CPU: %.1f%%, Temp: %.1f°C\n", 
                update_count + 1, ram_usage, cpu_usage, temperature);
         
-        // // Wait 2 seconds before next update
-        // sleep(1);
+        // Wait 2 seconds before next update
+        sleep(2);
         update_count++;
     }
     

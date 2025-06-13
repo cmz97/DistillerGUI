@@ -37,6 +37,7 @@ add_executable(DistillerGUI
     background.c
     font_distiller.c
     system_monitor.c
+    dashboard_ui.c
 )
 
 # Then add Montserrat font configuration
@@ -70,7 +71,7 @@ else()
 endif()
 
 # Set LOCAL_DEBUG flag
-target_compile_definitions(DistillerGUI PRIVATE LOCAL_DEBUG)
+# target_compile_definitions(DistillerGUI PRIVATE LOCAL_DEBUG)
 
 # Link libraries
 target_link_libraries(DistillerGUI PRIVATE 
