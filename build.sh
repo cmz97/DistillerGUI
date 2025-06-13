@@ -18,8 +18,8 @@ fi
 # Install dependencies if needed
 if [ "$(id -u)" = "0" ]; then
     echo -e "${YELLOW}Installing dependencies...${NC}"
-    apt-get update
-    apt-get install -y build-essential cmake git libgpiod-dev gpiod
+    # apt-get update
+    # apt-get install -y build-essential cmake git libgpiod-dev gpiod
 else
     echo -e "${YELLOW}Note: Run with sudo to automatically install dependencies${NC}"
 fi
