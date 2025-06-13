@@ -69,6 +69,9 @@ else()
     message(STATUS "Using libgpiod v1.x API")
 endif()
 
+# Set LOCAL_DEBUG flag
+target_compile_definitions(DistillerGUI PRIVATE LOCAL_DEBUG)
+
 # Link libraries
 target_link_libraries(DistillerGUI PRIVATE 
     lvgl 

@@ -44,7 +44,9 @@ int main(void)
     printf("Debug: LVGL initialized\n");
 
     // Initialize e-ink hardware first
+#ifndef LOCAL_DEBUG
     eink_init();
+#endif
 
     // Initialize system monitor
     if (!system_monitor_init()) {
@@ -119,8 +121,10 @@ int main(void)
     printf("Debug: Cleaning up system monitor\n");
     system_monitor_cleanup();
     
+#ifndef LOCAL_DEBUG
     printf("Debug: Cleaning up e-ink display before exit\n");
     eink_cleanup();
+#endif
     
     return 0;
 }

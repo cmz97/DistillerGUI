@@ -13,9 +13,6 @@
 #include <sys/stat.h>
 #include "lvgl/lvgl.h"
 
-// Debug option to enable/disable PNG saving (resource intensive)
-#define EINK_DEBUG_SAVE_PNG 0  // Set to 0 to disable PNG saving, 1 to enable
-
 static int spi_fd = -1;
 
 static epd_mode_t current_mode = MODE_PARTIAL;
@@ -423,7 +420,7 @@ void EPD_DeepSleep(void) {
 }
 
 // PNG debug functions - save to project root and properly unpack bit data
-#if EINK_DEBUG_SAVE_PNG
+#if LOCAL_DEBUG
 void save_bitpacked_as_png(const char* filename, const uint8_t* packed_data, uint32_t width, uint32_t height) {
     // Save to project root directory
     char full_path[256];
@@ -470,7 +467,7 @@ void save_bitpacked_as_png(const char* filename, const uint8_t* packed_data, uin
     
     free(rgba_data);
 }
-#endif // EINK_DEBUG_SAVE_PNG
+#endif // LOCAL_DEBUG
 
 // Rotate bit-packed data counter-clockwise 90 degrees
 void rotate_bitpacked_ccw_90(const uint8_t* src, uint8_t* dst, uint32_t src_width, uint32_t src_height) {
@@ -558,7 +555,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     
     printf("Debug: Converted %d black pixels\n", black_pixels);
 
-#if EINK_DEBUG_SAVE_PNG
+#if LOCAL_DEBUG
     save_bitpacked_as_png("debug_01_lvgl_bitpacked.png", bit_packed_data, lvgl_width, lvgl_height);
 #endif
     
@@ -602,7 +599,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     
     printf("Debug: Horizontal flip complete\n");
 
-#if EINK_DEBUG_SAVE_PNG
+#if LOCAL_DEBUG
     save_bitpacked_as_png("debug_01b_flipped.png", flipped_data, lvgl_width, lvgl_height);
 #endif
     
@@ -635,7 +632,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     // LVGL landscape (250x128) -> E-ink portrait (128x250)
     rotate_bitpacked_ccw_90(flipped_data, rotated_data, lvgl_width, lvgl_height);
 
-#if EINK_DEBUG_SAVE_PNG
+#if LOCAL_DEBUG
     save_bitpacked_as_png("debug_02_rotated.png", rotated_data, lvgl_height, lvgl_width);
 #endif
     
@@ -647,7 +644,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
         rotated_data[i] = ~rotated_data[i];  // Flip all bits
     }
 
-#if EINK_DEBUG_SAVE_PNG
+#if LOCAL_DEBUG
     save_bitpacked_as_png("debug_03_inverted.png", rotated_data, lvgl_height, lvgl_width);
 #endif
     
@@ -670,6 +667,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
     memcpy(display_data, rotated_data, copy_size);
     
     // Always use partial mode - EPD_init_Part() first, then epd_set_basemap or pic_display_partial
+#ifndef LOCAL_DEBUG
     if (first_frame) {
         // First frame: Initialize partial mode and establish basemap
         printf("Debug: Initializing partial refresh mode for first frame\n");
@@ -685,6 +683,7 @@ void eink_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
         printf("Debug: Using partial refresh against established basemap\n");
         pic_display_partial(display_data, EPD_ARRAY);
     }
+#endif
     
     // Update frame counter and clear first frame flag
     frame_counter++;
