@@ -58,6 +58,17 @@ target_include_directories(DistillerGUI PUBLIC
     ${LVGL_DIR}/src/display
 )
 
+# Detect libgpiod version
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPIOD REQUIRED libgpiod)
+string(REGEX MATCH "^([0-9]+)" GPIOD_MAJOR_VERSION "${GPIOD_VERSION}")
+if(GPIOD_MAJOR_VERSION GREATER_EQUAL 2)
+    message(STATUS "Using libgpiod v2.x API")
+    target_compile_definitions(DistillerGUI PRIVATE GPIOD_V2)
+else()
+    message(STATUS "Using libgpiod v1.x API")
+endif()
+
 # Link libraries
 target_link_libraries(DistillerGUI PRIVATE 
     lvgl 

@@ -21,11 +21,18 @@ static int spi_fd = -1;
 static epd_mode_t current_mode = MODE_PARTIAL;
 static epd_mode_t previous_mode = MODE_NONE;
 
-// GPIO handling variables
+// Version check for libgpiod
+#ifdef GPIOD_V2
+static struct gpiod_chip *chip;
+static struct gpiod_line_request *dc_request;
+static struct gpiod_line_request *rst_request;
+static struct gpiod_line_request *busy_request;
+#else
 static struct gpiod_chip *chip;
 static struct gpiod_line *dc_line;
 static struct gpiod_line *rst_line;
 static struct gpiod_line *busy_line;
+#endif
 
 // Watchdog counter for busy checking
 static int watchdog_counter = 0;
@@ -52,6 +59,21 @@ static void delay_ms(int ms) {
 }
 
 static void gpio_write(int pin, int value) {
+#ifdef GPIOD_V2
+    struct gpiod_line_request *request = NULL;
+    
+    if (pin == DC_PIN) {
+        request = dc_request;
+    } else if (pin == RST_PIN) {
+        request = rst_request;
+    }
+    
+    if (request) {
+        if (gpiod_line_request_set_value(request, pin, value) < 0) {
+            printf("Error: Failed to set GPIO %d to %d\n", pin, value);
+        }
+    }
+#else
     struct gpiod_line *line = NULL;
     
     if (pin == DC_PIN) {
@@ -65,12 +87,19 @@ static void gpio_write(int pin, int value) {
             printf("Error: Failed to set GPIO %d to %d\n", pin, value);
         }
     }
+#endif
 }
 
 static int gpio_read(int pin) {
-    if (pin == BUSY_PIN) {
+#ifdef GPIOD_V2
+    if (pin == BUSY_PIN && busy_request) {
+        return gpiod_line_request_get_value(busy_request, pin);
+    }
+#else
+    if (pin == BUSY_PIN && busy_line) {
         return gpiod_line_get_value(busy_line);
     }
+#endif
     return -1;
 }
 
@@ -711,6 +740,133 @@ void eink_init(void) {
         return;
     }
 
+#ifdef GPIOD_V2
+    // libgpiod v2.x API
+    printf("Debug: Using libgpiod v2.x API\n");
+    
+    // Configure DC pin (output)
+    struct gpiod_line_settings *dc_settings = gpiod_line_settings_new();
+    if (!dc_settings) {
+        printf("Error: Failed to create DC line settings\n");
+        return;
+    }
+    gpiod_line_settings_set_direction(dc_settings, GPIOD_LINE_DIRECTION_OUTPUT);
+    gpiod_line_settings_set_output_value(dc_settings, GPIOD_LINE_VALUE_INACTIVE);
+    
+    struct gpiod_line_config *dc_config = gpiod_line_config_new();
+    if (!dc_config) {
+        printf("Error: Failed to create DC line config\n");
+        gpiod_line_settings_free(dc_settings);
+        return;
+    }
+    unsigned int dc_pin = DC_PIN;
+    gpiod_line_config_add_line_settings(dc_config, &dc_pin, 1, dc_settings);
+    
+    struct gpiod_request_config *dc_req_config = gpiod_request_config_new();
+    if (!dc_req_config) {
+        printf("Error: Failed to create DC request config\n");
+        gpiod_line_settings_free(dc_settings);
+        gpiod_line_config_free(dc_config);
+        return;
+    }
+    gpiod_request_config_set_consumer(dc_req_config, "eink_dc");
+    
+    dc_request = gpiod_chip_request_lines(chip, dc_req_config, dc_config);
+    if (!dc_request) {
+        printf("Error: Failed to request DC line\n");
+        gpiod_line_settings_free(dc_settings);
+        gpiod_line_config_free(dc_config);
+        gpiod_request_config_free(dc_req_config);
+        return;
+    }
+    
+    gpiod_line_settings_free(dc_settings);
+    gpiod_line_config_free(dc_config);
+    gpiod_request_config_free(dc_req_config);
+    
+    // Configure RST pin (output)
+    struct gpiod_line_settings *rst_settings = gpiod_line_settings_new();
+    if (!rst_settings) {
+        printf("Error: Failed to create RST line settings\n");
+        return;
+    }
+    gpiod_line_settings_set_direction(rst_settings, GPIOD_LINE_DIRECTION_OUTPUT);
+    gpiod_line_settings_set_output_value(rst_settings, GPIOD_LINE_VALUE_INACTIVE);
+    
+    struct gpiod_line_config *rst_config = gpiod_line_config_new();
+    if (!rst_config) {
+        printf("Error: Failed to create RST line config\n");
+        gpiod_line_settings_free(rst_settings);
+        return;
+    }
+    unsigned int rst_pin = RST_PIN;
+    gpiod_line_config_add_line_settings(rst_config, &rst_pin, 1, rst_settings);
+    
+    struct gpiod_request_config *rst_req_config = gpiod_request_config_new();
+    if (!rst_req_config) {
+        printf("Error: Failed to create RST request config\n");
+        gpiod_line_settings_free(rst_settings);
+        gpiod_line_config_free(rst_config);
+        return;
+    }
+    gpiod_request_config_set_consumer(rst_req_config, "eink_rst");
+    
+    rst_request = gpiod_chip_request_lines(chip, rst_req_config, rst_config);
+    if (!rst_request) {
+        printf("Error: Failed to request RST line\n");
+        gpiod_line_settings_free(rst_settings);
+        gpiod_line_config_free(rst_config);
+        gpiod_request_config_free(rst_req_config);
+        return;
+    }
+    
+    gpiod_line_settings_free(rst_settings);
+    gpiod_line_config_free(rst_config);
+    gpiod_request_config_free(rst_req_config);
+    
+    // Configure BUSY pin (input)
+    struct gpiod_line_settings *busy_settings = gpiod_line_settings_new();
+    if (!busy_settings) {
+        printf("Error: Failed to create BUSY line settings\n");
+        return;
+    }
+    gpiod_line_settings_set_direction(busy_settings, GPIOD_LINE_DIRECTION_INPUT);
+    
+    struct gpiod_line_config *busy_config = gpiod_line_config_new();
+    if (!busy_config) {
+        printf("Error: Failed to create BUSY line config\n");
+        gpiod_line_settings_free(busy_settings);
+        return;
+    }
+    unsigned int busy_pin = BUSY_PIN;
+    gpiod_line_config_add_line_settings(busy_config, &busy_pin, 1, busy_settings);
+    
+    struct gpiod_request_config *busy_req_config = gpiod_request_config_new();
+    if (!busy_req_config) {
+        printf("Error: Failed to create BUSY request config\n");
+        gpiod_line_settings_free(busy_settings);
+        gpiod_line_config_free(busy_config);
+        return;
+    }
+    gpiod_request_config_set_consumer(busy_req_config, "eink_busy");
+    
+    busy_request = gpiod_chip_request_lines(chip, busy_req_config, busy_config);
+    if (!busy_request) {
+        printf("Error: Failed to request BUSY line\n");
+        gpiod_line_settings_free(busy_settings);
+        gpiod_line_config_free(busy_config);
+        gpiod_request_config_free(busy_req_config);
+        return;
+    }
+    
+    gpiod_line_settings_free(busy_settings);
+    gpiod_line_config_free(busy_config);
+    gpiod_request_config_free(busy_req_config);
+    
+#else
+    // libgpiod v1.x API (legacy)
+    printf("Debug: Using libgpiod v1.x API\n");
+    
     // Get GPIO lines
     dc_line = gpiod_chip_get_line(chip, DC_PIN);
     rst_line = gpiod_chip_get_line(chip, RST_PIN);
@@ -728,6 +884,7 @@ void eink_init(void) {
         printf("Error: Failed to configure GPIO directions\n");
         return;
     }
+#endif
 
     printf("Debug: GPIO initialized successfully\n");
 
@@ -749,9 +906,15 @@ void eink_cleanup(void) {
         close(spi_fd);
     }
 
+#ifdef GPIOD_V2
+    if (dc_request) gpiod_line_request_release(dc_request);
+    if (rst_request) gpiod_line_request_release(rst_request);
+    if (busy_request) gpiod_line_request_release(busy_request);
+#else
     if (dc_line) gpiod_line_release(dc_line);
     if (rst_line) gpiod_line_release(rst_line);
     if (busy_line) gpiod_line_release(busy_line);
+#endif
     
     if (chip) gpiod_chip_close(chip);
     
